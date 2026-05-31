@@ -1,0 +1,18 @@
+/* AI 聊天组件布局 */
+.ai-chat-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.ai-chat-messages {
+  flex: 1 1 0;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.ai-chat-input {
+  flex: 0 0 auto;
+  padding: 12px 0 0;
+}

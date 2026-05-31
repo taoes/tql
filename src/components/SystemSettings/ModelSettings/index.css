@@ -1,0 +1,14 @@
+/* ModelSettings — 模型设置面板样式 */
+
+.model-settings-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 260px;
+}
+
+.model-settings-slider-value {
+  width: 32px;
+  text-align: right;
+  font-size: 0.85rem;
+}

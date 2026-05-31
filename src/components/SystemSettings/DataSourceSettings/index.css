@@ -1,0 +1,16 @@
+/* DataSourceSettings — 数据源设置面板样式 */
+
+.datasource-panel {
+  max-width: 800px;
+}
+
+.datasource-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.datasource-header-title {
+  margin-bottom: 0;
+}

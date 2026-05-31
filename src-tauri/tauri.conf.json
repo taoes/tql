@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "tql",
+  "productName": "TQL",
   "version": "0.1.0",
   "identifier": "com.taoes.tql",
   "build": {
@@ -12,9 +12,19 @@
   "app": {
     "windows": [
       {
-        "title": "tql",
-        "width": 800,
-        "height": 600
+        "title": "Text Query Language",
+        "maximizable": true,
+        "resizable": true,
+        "width": 1200,
+        "height": 800,
+        "minWidth": 800,
+        "minHeight": 600,
+        "center": true,
+        "transparent": false,
+        "decorations": true,
+        "alwaysOnTop": false,
+        "visible": true,
+        "fullscreen": false
       }
     ],
     "security": {

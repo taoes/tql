@@ -1,0 +1,6 @@
+.sidebar-title {
+  padding: 16px;
+  font-size: 1.125rem;
+  font-weight: 700;
+  border-bottom: 1px solid var(--color-sidebar-border, var(--sidebar-border));
+}

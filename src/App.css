@@ -1,6 +1,5 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
 
 @custom-variant dark (&:is(.dark *));
@@ -67,6 +66,8 @@
   flex-direction: column;
   justify-content: center;
   text-align: center;
+  height: 100vh;
+  width: 100vw;
 }
 
 .logo {
@@ -99,36 +100,8 @@ h1 {
   text-align: center;
 }
 
-input,
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  color: #0f0f0f;
-  background-color: #ffffff;
-  transition: border-color 0.25s;
-  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2);
-}
 
-button {
-  cursor: pointer;
-}
 
-button:hover {
-  border-color: #396cd8;
-}
-button:active {
-  border-color: #396cd8;
-  background-color: #e8e8e8;
-}
-
-input,
-button {
-  outline: none;
-}
 
 #greet-input {
   margin-right: 5px;
@@ -142,15 +115,6 @@ button {
 
   a:hover {
     color: #24c8db;
-  }
-
-  input,
-  button {
-    color: #ffffff;
-    background-color: #0f0f0f98;
-  }
-  button:active {
-    background-color: #0f0f0f69;
   }
 }
 
@@ -240,5 +204,41 @@ button {
   }
   html {
     @apply font-sans;
+  }
+}
+
+/* 应用布局样式：左侧 15%，右侧 85% */
+.app-root {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  background: var(--color-background, var(--background));
+  color: var(--color-foreground, var(--foreground));
+}
+
+.sidebar {
+  width: 15%;
+  min-width: 200px;
+  background: var(--color-sidebar, var(--sidebar));
+  color: var(--color-sidebar-foreground, var(--sidebar-foreground));
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--color-sidebar-border, var(--sidebar-border));
+}
+
+.content {
+  width: 85%;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 768px) {
+  .app-root {
+    flex-direction: column;
+  }
+  .sidebar,
+  .content {
+    width: 100%;
+    min-width: 0;
   }
 }

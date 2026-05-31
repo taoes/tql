@@ -1,0 +1,30 @@
+.sidebar-body {
+  padding: 16px;
+  overflow: auto;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sidebar-body-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+
+.sidebar-tree {
+  flex: 1 1 0;
+  overflow: auto;
+}
+
+.sidebar-tree .ant-tree {
+  background: transparent;
+  font-size: 13px;
+}
+
+.sidebar-tree .ant-tree-node-content-wrapper {
+  min-height: 28px;
+}
+
