@@ -5,7 +5,7 @@ import {
   AppstoreOutlined,
   RobotOutlined,
   DatabaseOutlined,
-  BgColorsOutlined,
+  BgColorsOutlined
 } from "@ant-design/icons";
 import GeneralSettings from "./GeneralSettings";
 import BasicSettings from "./BasicSettings";
@@ -32,6 +32,12 @@ const tabItems = [
     label: "模型设置",
     icon: <RobotOutlined />,
     children: <ModelSettings />,
+  },
+  {
+    key: "hooks",
+    label: "Hooks",
+    icon: <DatabaseOutlined />,
+    children: <DataSourceSettings />,
   },
   {
     key: "datasource",
