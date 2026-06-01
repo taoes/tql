@@ -114,11 +114,10 @@ function SidebarBody() {
   }, [ctxMenu]);
 
   const menuItems = useMemo<MenuProps["items"]>(
-    () => [
-      { key: "refresh", icon: <ReloadOutlined />, label: t("sidebar.ctx.refresh") },
-      { key: "copy", icon: <CopyOutlined />, label: t("sidebar.ctx.copyName") },
-      { key: "query", icon: <CodeOutlined />, label: t("sidebar.ctx.newQuery") },
-      { key: "ddl", icon: <FileTextOutlined />, label: t("sidebar.ctx.viewDdl") },
+    () => [  
+      { key: "copy", icon: <CopyOutlined />, label: '重新索引' },
+      { key: "query", icon: <CodeOutlined />, label: '新建控制台' },
+      { key: "refresh", icon: <ReloadOutlined />, label: '刷新数据库' },
     ],
     [t]
   );

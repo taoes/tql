@@ -48,7 +48,7 @@ const prompts: PromptsProps["items"] = [
   },
 ];
 
-export default function AIChat() {
+export default function AIChat({ onRunSql }: { onRunSql: (sql: string) => void }) {
   const t = useTranslation();
   const modelConfig = useModelConfig();
 

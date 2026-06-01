@@ -65,7 +65,7 @@ function ContentBody() {
         key: AI_TAB_KEY,
         label: (
           <span className="workspace-tab-label">
-            <MessageOutlined /> {t("workspace.aiTab")}
+            <MessageOutlined /> TQL 查询助手
           </span>
         ),
         closable: false,
