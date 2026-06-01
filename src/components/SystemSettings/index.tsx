@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Tabs, Button, Space, Spin, message } from "antd";
 import {
   SettingOutlined,
@@ -12,49 +12,36 @@ import BasicSettings from "./BasicSettings";
 import ModelSettings from "./ModelSettings";
 import DataSourceSettings from "./DataSourceSettings";
 import StyleSettings from "./StyleSettings";
-import { AppSettings, DEFAULT_SETTINGS } from "../../settings/types";
-import { loadSettings, saveSettings } from "../../settings/api";
+import { useSettings } from "../../settings/SettingsContext";
+import { DEFAULT_SETTINGS } from "../../settings/types";
+import type { AppSettings } from "../../settings/types";
 import { useI18n } from "../../i18n";
 import "./index.css";
 
 function SystemSettings() {
   const { t, setLocale } = useI18n();
+  const { settings, loading, save, reload } = useSettings();
   const [activeKey, setActiveKey] = useState("general");
-  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
-  const [loading, setLoading] = useState(true);
+  const [localSettings, setLocalSettings] = useState<AppSettings | null>(null);
   const [saving, setSaving] = useState(false);
   const [messageApi, contextHolder] = message.useMessage();
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    loadSettings()
-      .then((s) => {
-        if (!cancelled) setSettings(s);
-      })
-      .catch((err) => {
-        if (!cancelled) messageApi.error(t("settings.loadingFailed", { error: String(err) }));
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [messageApi, t]);
+  // Merge: start with loaded settings, track local edits
+  const current = localSettings ?? settings ?? DEFAULT_SETTINGS;
 
   const update = <K extends keyof AppSettings>(key: K, next: AppSettings[K]) => {
-    setSettings((prev) => ({ ...prev, [key]: next }));
+    setLocalSettings((prev) => ({ ...(prev ?? current), [key]: next }));
     if (key === "general") {
-      const general = next as AppSettings["general"];
-      setLocale(general.language);
+      setLocale(next.general.language);
     }
   };
 
   const handleSave = async () => {
+    if (!localSettings) return;
     setSaving(true);
     try {
-      await saveSettings(settings);
+      await save(localSettings);
+      setLocalSettings(null);
       messageApi.success(t("settings.saved"));
     } catch (err) {
       messageApi.error(t("settings.saveFailed", { error: String(err) }));
@@ -64,17 +51,9 @@ function SystemSettings() {
   };
 
   const handleReset = async () => {
-    setLoading(true);
-    try {
-      const s = await loadSettings();
-      setSettings(s);
-      setLocale(s.general.language);
-      messageApi.info(t("settings.loaded"));
-    } catch (err) {
-      messageApi.error(t("settings.loadFailed", { error: String(err) }));
-    } finally {
-      setLoading(false);
-    }
+    await reload();
+    setLocalSettings(null);
+    messageApi.info(t("settings.loaded"));
   };
 
   const tabItems = [
@@ -84,7 +63,7 @@ function SystemSettings() {
       icon: <SettingOutlined />,
       children: (
         <GeneralSettings
-          value={settings.general}
+          value={current.general}
           onChange={(v) => update("general", v)}
         />
       ),
@@ -94,7 +73,7 @@ function SystemSettings() {
       label: t("settings.tabs.basic"),
       icon: <AppstoreOutlined />,
       children: (
-        <BasicSettings value={settings.basic} onChange={(v) => update("basic", v)} />
+        <BasicSettings value={current.basic} onChange={(v) => update("basic", v)} />
       ),
     },
     {
@@ -102,7 +81,7 @@ function SystemSettings() {
       label: t("settings.tabs.model"),
       icon: <RobotOutlined />,
       children: (
-        <ModelSettings value={settings.model} onChange={(v) => update("model", v)} />
+        <ModelSettings value={current.model} onChange={(v) => update("model", v)} />
       ),
     },
     {
@@ -111,7 +90,7 @@ function SystemSettings() {
       icon: <DatabaseOutlined />,
       children: (
         <DataSourceSettings
-          value={settings.datasource}
+          value={current.datasource}
           onChange={(v) => update("datasource", v)}
         />
       ),
@@ -121,7 +100,7 @@ function SystemSettings() {
       label: t("settings.tabs.style"),
       icon: <BgColorsOutlined />,
       children: (
-        <StyleSettings value={settings.style} onChange={(v) => update("style", v)} />
+        <StyleSettings value={current.style} onChange={(v) => update("style", v)} />
       ),
     },
   ];

@@ -20,7 +20,7 @@ export interface BasicSettings {
 }
 
 export interface ModelSettings {
-  provider: "openai" | "anthropic" | "local";
+  provider: "openai" | "anthropic" | "deepseek" | "local";
   apiUrl: string;
   apiKey: string;
   modelName: string;

@@ -37,6 +37,16 @@ const messages: Messages = {
     copy: "複製",
     delete: "刪除",
     play: "執行 SQL",
+    stop: "停止",
+    systemPrompt:
+      "你是 TextQL，一個智慧 SQL 用戶端助手。" +
+      "你的職責是幫助使用者處理資料庫相關任務：編寫 SQL 查詢、解釋資料庫概念、最佳化查詢、設計資料表結構以及排查資料庫問題。" +
+      "\\n\\n你必須遵守以下規則：" +
+      "\\n1. 只回答與資料庫、SQL、資料分析、資料工程相關的問題。" +
+      "\\n2. 對於任何與資料庫或 SQL 無關的問題，禮貌拒絕回答。回覆：'我是 SQL 助手，只能回答資料庫相關的問題。'" +
+      "\\n3. 編寫 SQL 時始終考慮安全性——不要在沒有使用者明確確認和 WHERE 條件的情況下建議 DROP、TRUNCATE 或 DELETE 操作。" +
+      "\\n4. 保持簡潔，盡可能提供可直接執行的 SQL 語句。" +
+      "\\n5. 如果使用者的問題不夠明確，請主動詢問其資料庫結構或具體意圖。",
   },
   workspace: {
     aiTab: "AI 對話",
@@ -91,6 +101,7 @@ const messages: Messages = {
       title: "模型設定",
       sectionConfig: "AI 模型設定",
       provider: "模型提供者",
+      providerDeepseek: "DeepSeek",
       providerLocal: "本機模型",
       apiUrl: "API 位址",
       apiKey: "API Key",

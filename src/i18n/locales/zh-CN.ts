@@ -35,6 +35,16 @@ const raw = {
     copy: "复制",
     delete: "删除",
     play: "执行 SQL",
+    stop: "停止",
+    systemPrompt:
+      "你是 TextQL，一个智能 SQL 客户端助手。" +
+      "你的职责是帮助用户处理数据库相关任务：编写 SQL 查询、解释数据库概念、优化查询、设计表结构以及排查数据库问题。" +
+      "\\n\\n你必须遵守以下规则：" +
+      "\\n1. 只回答与数据库、SQL、数据分析、数据工程相关的问题。" +
+      "\\n2. 对于任何与数据库或 SQL 无关的问题，礼貌拒绝回答。回复：'我是 SQL 助手，只能回答数据库相关的问题。'" +
+      "\\n3. 编写 SQL 时始终考虑安全性——不要在没有用户明确确认和 WHERE 条件的情况下建议 DROP、TRUNCATE 或 DELETE 操作。" +
+      "\\n4. 保持简洁，尽可能提供可直接执行的 SQL 语句。" +
+      "\\n5. 如果用户的问题不够明确，请主动询问其数据库结构或具体意图。",
   },
   workspace: {
     aiTab: "AI 对话",
@@ -89,6 +99,7 @@ const raw = {
       title: "模型设置",
       sectionConfig: "AI 模型配置",
       provider: "模型提供商",
+      providerDeepseek: "DeepSeek",
       providerLocal: "本地模型",
       apiUrl: "API 地址",
       apiKey: "API Key",

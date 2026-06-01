@@ -37,6 +37,16 @@ const messages: Messages = {
     copy: "Copy",
     delete: "Delete",
     play: "Run SQL",
+    stop: "Stop",
+    systemPrompt:
+      "You are TextQL, an intelligent SQL client assistant. " +
+      "Your purpose is to help users with database-related tasks: writing SQL queries, explaining database concepts, optimizing queries, designing schemas, and troubleshooting database issues." +
+      "\\n\\nRules you must follow:" +
+      "\\n1. Only answer questions related to databases, SQL, data analysis, and data engineering." +
+      "\\n2. For any question unrelated to databases or SQL, politely refuse to answer. Say: 'I'm a SQL-focused assistant and can only help with database-related questions.'" +
+      "\\n3. When writing SQL, always consider safety — never suggest DROP, TRUNCATE, or DELETE without explicit user confirmation and a WHERE clause." +
+      "\\n4. Be concise and provide executable SQL whenever possible." +
+      "\\n5. If the user's question is ambiguous, ask for clarification about their database schema or intent.",
   },
   workspace: {
     aiTab: "AI Chat",
@@ -91,6 +101,7 @@ const messages: Messages = {
       title: "Model",
       sectionConfig: "AI model configuration",
       provider: "Provider",
+      providerDeepseek: "DeepSeek",
       providerLocal: "Local model",
       apiUrl: "API URL",
       apiKey: "API Key",

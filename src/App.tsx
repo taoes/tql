@@ -8,7 +8,7 @@ import ContentBody from "./components/ContentBody";
 import SystemSettings from "./components/SystemSettings";
 import { useTranslation } from "./i18n";
 
-function App() {
+export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [messageApi, contextHolder] = message.useMessage();
   const t = useTranslation();
@@ -67,4 +67,3 @@ function App() {
   );
 }
 
-export default App;
