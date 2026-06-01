@@ -1,40 +1,60 @@
 import { Input, Select, Slider, Switch, Typography, Button } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
+import { ModelSettings as ModelSettingsType } from "../../../settings/types";
+import { useTranslation } from "../../../i18n";
 import "./index.css";
 
-function ModelSettings() {
+interface Props {
+  value: ModelSettingsType;
+  onChange: (next: ModelSettingsType) => void;
+}
+
+function ModelSettings({ value, onChange }: Props) {
+  const t = useTranslation();
+  const patch = (p: Partial<ModelSettingsType>) => onChange({ ...value, ...p });
+
   return (
     <div className="settings-panel">
       <Typography.Title level={4} style={{ marginBottom: 24 }}>
-        模型设置
+        {t("settings.model.title")}
       </Typography.Title>
 
       <div className="settings-section">
-        <div className="settings-section-title">AI 模型配置</div>
+        <div className="settings-section-title">{t("settings.model.sectionConfig")}</div>
         <div className="settings-row">
-          <span className="settings-row-label">模型提供商</span>
+          <span className="settings-row-label">{t("settings.model.provider")}</span>
           <Select
-            defaultValue="openai"
+            value={value.provider}
+            onChange={(v) => patch({ provider: v })}
             style={{ width: 180 }}
             options={[
               { value: "openai", label: "OpenAI" },
               { value: "anthropic", label: "Anthropic" },
-              { value: "local", label: "本地模型" },
+              { value: "local", label: t("settings.model.providerLocal") },
             ]}
           />
         </div>
         <div className="settings-row">
-          <span className="settings-row-label">API 地址</span>
-          <Input defaultValue="https://api.openai.com/v1" style={{ width: 280 }} />
+          <span className="settings-row-label">{t("settings.model.apiUrl")}</span>
+          <Input
+            value={value.apiUrl}
+            onChange={(e) => patch({ apiUrl: e.target.value })}
+            style={{ width: 280 }}
+          />
         </div>
         <div className="settings-row">
-          <span className="settings-row-label">API Key</span>
-          <Input.Password defaultValue="sk-********************************" style={{ width: 280 }} />
+          <span className="settings-row-label">{t("settings.model.apiKey")}</span>
+          <Input.Password
+            value={value.apiKey}
+            onChange={(e) => patch({ apiKey: e.target.value })}
+            style={{ width: 280 }}
+          />
         </div>
         <div className="settings-row">
-          <span className="settings-row-label">模型名称</span>
+          <span className="settings-row-label">{t("settings.model.modelName")}</span>
           <Select
-            defaultValue="gpt-4o"
+            value={value.modelName}
+            onChange={(v) => patch({ modelName: v })}
             style={{ width: 180 }}
             options={[
               { value: "gpt-4o", label: "GPT-4o" },
@@ -46,39 +66,65 @@ function ModelSettings() {
       </div>
 
       <div className="settings-section">
-        <div className="settings-section-title">模型参数</div>
+        <div className="settings-section-title">{t("settings.model.sectionParams")}</div>
         <div className="settings-row">
           <span className="settings-row-label">Temperature</span>
           <div style={{ display: "flex", alignItems: "center", gap: 12, width: 260 }}>
-            <Slider defaultValue={0.7} min={0} max={2} step={0.1} style={{ flex: 1 }} />
-            <span style={{ width: 32, textAlign: "right", fontSize: "0.85rem" }}>0.7</span>
+            <Slider
+              value={value.temperature}
+              onChange={(v) => patch({ temperature: v as number })}
+              min={0}
+              max={2}
+              step={0.1}
+              style={{ flex: 1 }}
+            />
+            <span style={{ width: 32, textAlign: "right", fontSize: "0.85rem" }}>
+              {value.temperature.toFixed(1)}
+            </span>
           </div>
         </div>
         <div className="settings-row">
           <span className="settings-row-label">Max Tokens</span>
-          <Slider defaultValue={4096} min={256} max={32768} step={256} style={{ width: 260, marginRight: 0 }} />
+          <Slider
+            value={value.maxTokens}
+            onChange={(v) => patch({ maxTokens: v as number })}
+            min={256}
+            max={32768}
+            step={256}
+            style={{ width: 260, marginRight: 0 }}
+          />
         </div>
         <div className="settings-row">
           <span className="settings-row-label">Top P</span>
-          <Slider defaultValue={1} min={0} max={1} step={0.05} style={{ width: 260, marginRight: 0 }} />
+          <Slider
+            value={value.topP}
+            onChange={(v) => patch({ topP: v as number })}
+            min={0}
+            max={1}
+            step={0.05}
+            style={{ width: 260, marginRight: 0 }}
+          />
         </div>
       </div>
 
       <div className="settings-section">
-        <div className="settings-section-title">高级选项</div>
+        <div className="settings-section-title">{t("settings.model.sectionAdvanced")}</div>
         <div className="settings-row">
-          <span className="settings-row-label">流式输出</span>
-          <Switch defaultChecked />
+          <span className="settings-row-label">{t("settings.model.stream")}</span>
+          <Switch checked={value.stream} onChange={(v) => patch({ stream: v })} />
         </div>
         <div className="settings-row">
-          <span className="settings-row-label">上下文记忆</span>
-          <Switch defaultChecked />
+          <span className="settings-row-label">{t("settings.model.contextMemory")}</span>
+          <Switch
+            checked={value.contextMemory}
+            onChange={(v) => patch({ contextMemory: v })}
+          />
         </div>
       </div>
 
       <div style={{ marginTop: 8 }}>
         <Button type="dashed" icon={<PlusOutlined />}>
-          添加自定义模型
+          {t("settings.model.addCustom")}
         </Button>
       </div>
     </div>

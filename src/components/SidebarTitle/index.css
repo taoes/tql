@@ -2,5 +2,12 @@
   padding: 16px;
   font-size: 1.125rem;
   font-weight: 700;
+}
+
+.sidebar-subtitle {
+  font-size: 0.875rem;
+  font-weight: 300;
+  color: var(--color-muted-foreground, #6b7280);
+  margin-top: 16px;
   border-bottom: 1px solid var(--color-sidebar-border, var(--sidebar-border));
 }

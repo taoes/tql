@@ -1,6 +1,7 @@
 import { Bubble, Sender, Actions } from "@ant-design/x";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { CopyOutlined, PlaySquareOutlined, DeleteOutlined } from "@ant-design/icons";
+import { useTranslation } from "../../i18n";
 import "./index.css";
 
 interface Message {
@@ -9,35 +10,30 @@ interface Message {
   content: string;
 }
 
+interface AIChatProps {
+  onRunSql?: (sql: string) => void;
+}
+
 const roleConfig = {
   ai: { placement: "start" as const },
   user: { placement: "end" as const },
 };
 
-const actionItems = (content: string) => [
-  {
-    key: "copy",
-    label: "Copy",
-    icon: <CopyOutlined />,
-  },
-  {
-    key: "remove",
-    label: "Delete",
-    danger: true,
-    icon: <DeleteOutlined />,
-  },
-  {
-    key: "play",
-    icon: <PlaySquareOutlined />,
-    label: "Play",
-  },
-];
-
-export default function AIChat() {
-  const [messages, setMessages] = useState<Message[]>([
-    { key: "1", role: "ai", content: "你好！有什么我可以帮你的？" },
-    { key: "2", role: "user", content: "你好！有什么我可以帮你的？" },
+export default function AIChat({ onRunSql }: AIChatProps) {
+  const t = useTranslation();
+  const [messages, setMessages] = useState<Message[]>(() => [
+    { key: "1", role: "ai", content: t("aiChat.greeting") },
+    { key: "2", role: "user", content: t("aiChat.greeting") },
   ]);
+
+  const actionItems = useMemo(
+    () => [
+      { key: "copy", label: t("aiChat.copy"), icon: <CopyOutlined /> },
+      { key: "remove", label: t("aiChat.delete"), danger: true, icon: <DeleteOutlined /> },
+      { key: "play", icon: <PlaySquareOutlined />, label: t("aiChat.play") },
+    ],
+    [t]
+  );
 
   const handleSubmit = (text: string) => {
     if (!text.trim()) return;
@@ -61,8 +57,12 @@ export default function AIChat() {
             footerPlacement="outer-end"
             footer={(content) => (
               <Actions
-                items={actionItems(content)}
-                onClick={() => console.log(content)}
+                items={actionItems}
+                onClick={(info) => {
+                  if (info.key === "play") {
+                    onRunSql?.(String(content));
+                  }
+                }}
               />
             )}
           />
@@ -73,7 +73,7 @@ export default function AIChat() {
           style={{ height: "150px" }}
           onSubmit={handleSubmit}
           submitType="shiftEnter"
-          placeholder="输入消息..."
+          placeholder={t("aiChat.placeholder")}
         />
       </div>
     </div>

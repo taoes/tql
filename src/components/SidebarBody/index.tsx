@@ -1,6 +1,15 @@
-import { useState } from "react";
-import { Select, Tree, Typography } from "antd";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Menu, Select, Tree, Typography, message } from "antd";
+import { createPortal } from "react-dom";
 import type { DataNode } from "antd/es/tree";
+import {
+  ReloadOutlined,
+  CopyOutlined,
+  CodeOutlined,
+  FileTextOutlined,
+} from "@ant-design/icons";
+import type { MenuProps } from "antd";
+import { useTranslation } from "../../i18n";
 import "./index.css";
 
 const dataSources = [
@@ -30,12 +39,6 @@ const dataSources = [
   },
 ];
 
-const initTreeData: DataNode[] = [
-  { title: "数据表", key: "tables", selectable: false },
-  { title: "视图", key: "views", selectable: false },
-  { title: "函数", key: "functions", isLeaf: true },
-];
-
 const updateTreeData = (
   list: DataNode[],
   key: React.Key,
@@ -51,9 +54,23 @@ const updateTreeData = (
     return node;
   });
 
+interface ContextState {
+  x: number;
+  y: number;
+  node: DataNode;
+}
+
 function SidebarBody() {
+  const t = useTranslation();
   const [dataSource, setDataSource] = useState("mysql-local");
-  const [treeData, setTreeData] = useState(initTreeData);
+  const [treeData, setTreeData] = useState<DataNode[]>(() => [
+    { title: t("sidebar.tables"), key: "tables", selectable: false },
+    { title: t("sidebar.views"), key: "views", selectable: false },
+    { title: t("sidebar.functions"), key: "functions", isLeaf: true },
+  ]);
+  const [ctxMenu, setCtxMenu] = useState<ContextState | null>(null);
+  const [messageApi, contextHolder] = message.useMessage();
+  const treeWrapRef = useRef<HTMLDivElement>(null);
 
   const selectOptions = dataSources.map((group) => ({
     label: group.group,
@@ -77,10 +94,67 @@ function SidebarBody() {
       }, 800);
     });
 
+  useEffect(() => {
+    if (!ctxMenu) return;
+    const close = () => setCtxMenu(null);
+    // wait for the current contextmenu bubble to finish so the menu isn't closed by its own open event
+    const timer = window.setTimeout(() => {
+      window.addEventListener("mousedown", close);
+      window.addEventListener("contextmenu", close);
+      window.addEventListener("resize", close);
+      window.addEventListener("blur", close);
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("mousedown", close);
+      window.removeEventListener("contextmenu", close);
+      window.removeEventListener("resize", close);
+      window.removeEventListener("blur", close);
+    };
+  }, [ctxMenu]);
+
+  const menuItems = useMemo<MenuProps["items"]>(
+    () => [
+      { key: "refresh", icon: <ReloadOutlined />, label: t("sidebar.ctx.refresh") },
+      { key: "copy", icon: <CopyOutlined />, label: t("sidebar.ctx.copyName") },
+      { key: "query", icon: <CodeOutlined />, label: t("sidebar.ctx.newQuery") },
+      { key: "ddl", icon: <FileTextOutlined />, label: t("sidebar.ctx.viewDdl") },
+    ],
+    [t]
+  );
+
+  const handleMenuClick: MenuProps["onClick"] = ({ key, domEvent }) => {
+    domEvent.stopPropagation();
+    if (!ctxMenu) return;
+    const node = ctxMenu.node;
+    const title = String(node.title ?? node.key);
+
+    switch (key) {
+      case "refresh":
+        setTreeData((origin) => updateTreeData(origin, node.key, []));
+        messageApi.success(t("sidebar.msg.refreshed", { name: title }));
+        break;
+      case "copy":
+        navigator.clipboard
+          ?.writeText(title)
+          .then(() => messageApi.success(t("sidebar.msg.copied", { name: title })))
+          .catch(() => messageApi.error(t("sidebar.msg.copyFailed")));
+        break;
+      case "query":
+        messageApi.info(t("sidebar.msg.queryTodo", { name: title }));
+        break;
+      case "ddl":
+        messageApi.info(t("sidebar.msg.ddlTodo", { name: title }));
+        break;
+    }
+    setCtxMenu(null);
+  };
+
   return (
     <div className="sidebar-body">
+      {contextHolder}
       <div className="sidebar-body-section">
-        <Typography.Text type="secondary">数据源</Typography.Text>
+        <Typography.Text type="secondary">{t("sidebar.dataSource")}</Typography.Text>
         <Select
           value={dataSource}
           onChange={setDataSource}
@@ -89,15 +163,37 @@ function SidebarBody() {
         />
       </div>
 
-      <div className="sidebar-body-section sidebar-tree">
-        <Typography.Text type="secondary">数据库</Typography.Text>
+      <div className="sidebar-body-section sidebar-tree" ref={treeWrapRef}>
+        <Typography.Text type="secondary">{t("sidebar.database")}</Typography.Text>
         <Tree
           loadData={onLoadData}
           treeData={treeData}
           showIcon
           blockNode
+          onRightClick={({ event, node }) => {
+            event.preventDefault();
+            event.stopPropagation();
+            setCtxMenu({ x: event.clientX, y: event.clientY, node });
+          }}
         />
       </div>
+
+      {ctxMenu &&
+        createPortal(
+          <div
+            className="sidebar-tree-ctx-menu"
+            style={{ top: ctxMenu.y, left: ctxMenu.x }}
+            onMouseDown={(e) => e.stopPropagation()}
+            onContextMenu={(e) => e.preventDefault()}
+          >
+            <Menu
+              items={menuItems}
+              onClick={handleMenuClick}
+              selectable={false}
+            />
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

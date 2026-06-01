@@ -1,55 +1,99 @@
-import { Input, Switch, InputNumber, Select, Typography } from "antd";
+import { Switch, InputNumber, Select, Typography } from "antd";
+import { BasicSettings as BasicSettingsType } from "../../../settings/types";
+import { useTranslation } from "../../../i18n";
 import "./index.css";
 
-function BasicSettings() {
+interface Props {
+  value: BasicSettingsType;
+  onChange: (next: BasicSettingsType) => void;
+}
+
+function BasicSettings({ value, onChange }: Props) {
+  const t = useTranslation();
+  const patch = (p: Partial<BasicSettingsType>) => onChange({ ...value, ...p });
+
   return (
     <div className="settings-panel">
       <Typography.Title level={4} style={{ marginBottom: 24 }}>
-        基础设置
+        {t("settings.basic.title")}
       </Typography.Title>
 
       <div className="settings-section">
-        <div className="settings-section-title">查询</div>
+        <div className="settings-section-title">{t("settings.basic.sectionQuery")}</div>
         <div className="settings-row">
-          <span className="settings-row-label">查询超时时间 (秒)</span>
-          <InputNumber defaultValue={30} min={5} max={300} style={{ width: 120 }} />
+          <span className="settings-row-label">{t("settings.basic.queryTimeout")}</span>
+          <InputNumber
+            value={value.queryTimeout}
+            onChange={(v) => patch({ queryTimeout: Number(v ?? 0) })}
+            min={5}
+            max={300}
+            style={{ width: 120 }}
+          />
         </div>
         <div className="settings-row">
-          <span className="settings-row-label">最大返回行数</span>
-          <InputNumber defaultValue={1000} min={100} max={100000} style={{ width: 120 }} />
+          <span className="settings-row-label">{t("settings.basic.maxRows")}</span>
+          <InputNumber
+            value={value.maxRows}
+            onChange={(v) => patch({ maxRows: Number(v ?? 0) })}
+            min={100}
+            max={100000}
+            style={{ width: 120 }}
+          />
         </div>
         <div className="settings-row">
-          <span className="settings-row-label">自动补全</span>
-          <Switch defaultChecked />
-        </div>
-      </div>
-
-      <div className="settings-section">
-        <div className="settings-section-title">编辑器</div>
-        <div className="settings-row">
-          <span className="settings-row-label">字体大小</span>
-          <InputNumber defaultValue={14} min={10} max={24} style={{ width: 120 }} />
-        </div>
-        <div className="settings-row">
-          <span className="settings-row-label">Tab 宽度</span>
-          <InputNumber defaultValue={2} min={1} max={8} style={{ width: 120 }} />
-        </div>
-        <div className="settings-row">
-          <span className="settings-row-label">行号显示</span>
-          <Switch defaultChecked />
-        </div>
-        <div className="settings-row">
-          <span className="settings-row-label">语法高亮</span>
-          <Switch defaultChecked />
+          <span className="settings-row-label">{t("settings.basic.autoComplete")}</span>
+          <Switch
+            checked={value.autoComplete}
+            onChange={(v) => patch({ autoComplete: v })}
+          />
         </div>
       </div>
 
       <div className="settings-section">
-        <div className="settings-section-title">导出</div>
+        <div className="settings-section-title">{t("settings.basic.sectionEditor")}</div>
         <div className="settings-row">
-          <span className="settings-row-label">默认导出格式</span>
+          <span className="settings-row-label">{t("settings.basic.fontSize")}</span>
+          <InputNumber
+            value={value.fontSize}
+            onChange={(v) => patch({ fontSize: Number(v ?? 0) })}
+            min={10}
+            max={24}
+            style={{ width: 120 }}
+          />
+        </div>
+        <div className="settings-row">
+          <span className="settings-row-label">{t("settings.basic.tabWidth")}</span>
+          <InputNumber
+            value={value.tabWidth}
+            onChange={(v) => patch({ tabWidth: Number(v ?? 0) })}
+            min={1}
+            max={8}
+            style={{ width: 120 }}
+          />
+        </div>
+        <div className="settings-row">
+          <span className="settings-row-label">{t("settings.basic.showLineNumber")}</span>
+          <Switch
+            checked={value.showLineNumber}
+            onChange={(v) => patch({ showLineNumber: v })}
+          />
+        </div>
+        <div className="settings-row">
+          <span className="settings-row-label">{t("settings.basic.syntaxHighlight")}</span>
+          <Switch
+            checked={value.syntaxHighlight}
+            onChange={(v) => patch({ syntaxHighlight: v })}
+          />
+        </div>
+      </div>
+
+      <div className="settings-section">
+        <div className="settings-section-title">{t("settings.basic.sectionExport")}</div>
+        <div className="settings-row">
+          <span className="settings-row-label">{t("settings.basic.exportFormat")}</span>
           <Select
-            defaultValue="csv"
+            value={value.exportFormat}
+            onChange={(v) => patch({ exportFormat: v })}
             style={{ width: 140 }}
             options={[
               { value: "csv", label: "CSV" },

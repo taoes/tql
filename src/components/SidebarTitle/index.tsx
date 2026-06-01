@@ -1,7 +1,16 @@
+import { useTranslation } from "../../i18n";
 import "./index.css";
 
 function SidebarTitle() {
-  return <div className="sidebar-title">TQL 1.0</div>;
+  const t = useTranslation();
+  return (
+    <div>
+      <div className="sidebar-title">
+        {t("app.title")}
+        <div className="sidebar-subtitle">{t("app.subtitle")}</div>
+      </div>
+    </div>
+  );
 }
 
 export default SidebarTitle;

@@ -1,64 +1,101 @@
-import { Button, Input, Switch, Table, Typography, Space, Tag } from "antd";
+import { useMemo } from "react";
+import { Button, InputNumber, Switch, Table, Typography, Space, Tag } from "antd";
 import { PlusOutlined, DeleteOutlined, ReloadOutlined } from "@ant-design/icons";
+import { DataSourceDefaults } from "../../../settings/types";
+import { useTranslation } from "../../../i18n";
 import "./index.css";
 
-const columns = [
-  {
-    title: "名称",
-    dataIndex: "name",
-    key: "name",
-  },
-  {
-    title: "类型",
-    dataIndex: "type",
-    key: "type",
-    render: (type: string) => <Tag>{type}</Tag>,
-  },
-  {
-    title: "地址",
-    dataIndex: "host",
-    key: "host",
-  },
-  {
-    title: "状态",
-    dataIndex: "status",
-    key: "status",
-    render: (status: string) => (
-      <Tag color={status === "已连接" ? "green" : "red"}>{status}</Tag>
-    ),
-  },
-  {
-    title: "操作",
-    key: "action",
-    render: () => (
-      <Space size="small">
-        <Button size="small" icon={<ReloadOutlined />} type="text" />
-        <Button size="small" icon={<DeleteOutlined />} type="text" danger />
-      </Space>
-    ),
-  },
-];
+interface Props {
+  value: DataSourceDefaults;
+  onChange: (next: DataSourceDefaults) => void;
+}
 
-const mockData = [
-  { key: "1", name: "本地 MySQL", type: "MySQL", host: "localhost:3306", status: "已连接" },
-  { key: "2", name: "开发 Redis", type: "Redis", host: "10.0.1.20:6379", status: "已连接" },
-  { key: "3", name: "ES 集群", type: "Elasticsearch", host: "es.example.com:9200", status: "未连接" },
-];
+function DataSourceSettings({ value, onChange }: Props) {
+  const t = useTranslation();
+  const patch = (p: Partial<DataSourceDefaults>) => onChange({ ...value, ...p });
 
-function DataSourceSettings() {
+  const connectedLabel = t("settings.datasource.statusConnected");
+
+  const columns = useMemo(
+    () => [
+      {
+        title: t("settings.datasource.colName"),
+        dataIndex: "name",
+        key: "name",
+      },
+      {
+        title: t("settings.datasource.colType"),
+        dataIndex: "type",
+        key: "type",
+        render: (type: string) => <Tag>{type}</Tag>,
+      },
+      {
+        title: t("settings.datasource.colHost"),
+        dataIndex: "host",
+        key: "host",
+      },
+      {
+        title: t("settings.datasource.colStatus"),
+        dataIndex: "status",
+        key: "status",
+        render: (status: string) => (
+          <Tag color={status === connectedLabel ? "green" : "red"}>{status}</Tag>
+        ),
+      },
+      {
+        title: t("settings.datasource.colAction"),
+        key: "action",
+        render: () => (
+          <Space size="small">
+            <Button size="small" icon={<ReloadOutlined />} type="text" />
+            <Button size="small" icon={<DeleteOutlined />} type="text" danger />
+          </Space>
+        ),
+      },
+    ],
+    [t, connectedLabel]
+  );
+
+  const mockData = useMemo(
+    () => [
+      {
+        key: "1",
+        name: t("settings.datasource.sampleMysql"),
+        type: "MySQL",
+        host: "localhost:3306",
+        status: connectedLabel,
+      },
+      {
+        key: "2",
+        name: t("settings.datasource.sampleRedis"),
+        type: "Redis",
+        host: "10.0.1.20:6379",
+        status: connectedLabel,
+      },
+      {
+        key: "3",
+        name: t("settings.datasource.sampleEs"),
+        type: "Elasticsearch",
+        host: "es.example.com:9200",
+        status: t("settings.datasource.statusDisconnected"),
+      },
+    ],
+    [t, connectedLabel]
+  );
+
   return (
     <div className="settings-panel datasource-panel">
       <Typography.Title level={4} style={{ marginBottom: 24 }}>
-        数据源
+        {t("settings.datasource.title")}
       </Typography.Title>
 
       <div className="settings-section">
         <div className="datasource-header">
           <span className="settings-section-title datasource-header-title">
-            已配置的数据源
+            {t("settings.datasource.sectionConfigured")}
           </span>
           <Button type="primary" icon={<PlusOutlined />} size="small">
-            添加数据源
+            {t("settings.datasource.add")}
           </Button>
         </div>
         <Table
@@ -71,18 +108,30 @@ function DataSourceSettings() {
       </div>
 
       <div className="settings-section">
-        <div className="settings-section-title">连接默认值</div>
+        <div className="settings-section-title">{t("settings.datasource.sectionDefaults")}</div>
         <div className="settings-row">
-          <span className="settings-row-label">连接超时 (秒)</span>
-          <Input defaultValue="10" style={{ width: 120 }} />
+          <span className="settings-row-label">{t("settings.datasource.connectTimeout")}</span>
+          <InputNumber
+            value={value.connectTimeout}
+            onChange={(v) => patch({ connectTimeout: Number(v ?? 0) })}
+            min={1}
+            max={600}
+            style={{ width: 120 }}
+          />
         </div>
         <div className="settings-row">
-          <span className="settings-row-label">启用 SSL</span>
-          <Switch defaultChecked />
+          <span className="settings-row-label">{t("settings.datasource.enableSsl")}</span>
+          <Switch checked={value.enableSsl} onChange={(v) => patch({ enableSsl: v })} />
         </div>
         <div className="settings-row">
-          <span className="settings-row-label">连接池大小</span>
-          <Input defaultValue="5" style={{ width: 120 }} />
+          <span className="settings-row-label">{t("settings.datasource.poolSize")}</span>
+          <InputNumber
+            value={value.poolSize}
+            onChange={(v) => patch({ poolSize: Number(v ?? 0) })}
+            min={1}
+            max={100}
+            style={{ width: 120 }}
+          />
         </div>
       </div>
     </div>

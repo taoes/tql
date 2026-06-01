@@ -1,6 +1,15 @@
 .system-settings {
   display: flex;
+  flex-direction: column;
   min-height: 420px;
+}
+
+.system-settings-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 24px;
+  border-top: 1px solid var(--color-border, #e5e7eb);
+  background: var(--color-card, #fff);
 }
 
 .system-settings-tabs {
@@ -27,7 +36,7 @@
 
 /* Settings panel common styles */
 .settings-panel {
-  max-width: 640px;
+  padding: 0;
 }
 
 .settings-panel h3 {

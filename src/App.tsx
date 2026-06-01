@@ -6,29 +6,31 @@ import SidebarBody from "./components/SidebarBody";
 import StatusBar from "./components/StatusBar";
 import ContentBody from "./components/ContentBody";
 import SystemSettings from "./components/SystemSettings";
+import { useTranslation } from "./i18n";
 
 function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [messageApi, contextHolder] = message.useMessage();
+  const t = useTranslation();
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       const isCmdOrCtrl = e.metaKey || e.ctrlKey;
 
-      // Cmd/Ctrl + ,  →  切换设置面板
+      // Cmd/Ctrl + ,  → toggle settings panel
       if (isCmdOrCtrl && e.key === ",") {
         e.preventDefault();
         setSettingsOpen((v) => !v);
         return;
       }
 
-      // Cmd/Ctrl + R  →  刷新数据
+      // Cmd/Ctrl + R  → refresh data
       if (isCmdOrCtrl && e.key === "r") {
         e.preventDefault();
-        messageApi.info("数据已刷新");
+        messageApi.info(t("app.refreshed"));
       }
     },
-    [messageApi]
+    [messageApi, t]
   );
 
   useEffect(() => {
@@ -50,7 +52,7 @@ function App() {
       </section>
 
       <Modal
-        title="系统设置"
+        title={t("settings.modalTitle")}
         open={settingsOpen}
         onCancel={() => setSettingsOpen(false)}
         footer={null}
