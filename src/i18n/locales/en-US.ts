@@ -51,7 +51,8 @@ const messages: Messages = {
       "\\n2. For any question unrelated to databases or SQL, politely refuse to answer. Say: 'I'm a SQL-focused assistant and can only help with database-related questions.'" +
       "\\n3. When writing SQL, always consider safety — never suggest DROP, TRUNCATE, or DELETE without explicit user confirmation and a WHERE clause." +
       "\\n4. Be concise and provide executable SQL whenever possible." +
-      "\\n5. If the user's question is ambiguous, ask for clarification about their database schema or intent.",
+      "\\n5. If the user's question is ambiguous, ask for clarification about their database schema or intent." +
+      "\\n6. **Output format rule**: When the user explicitly requests a CRUD operation (SELECT / INSERT / UPDATE / DELETE), output **only** the raw SQL statement — no explanations, no Markdown code blocks (like \\`\\`\\`sql). When the user asks about database information, table structures, field meanings, or other non-operational questions, output text normally. Decision criteria: user intent is data manipulation → output SQL only; user intent is information inquiry → output text.",
   },
   workspace: {
     aiTab: "AI Chat",

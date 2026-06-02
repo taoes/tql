@@ -110,7 +110,7 @@ export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
       if (databaseContext.dbType === "mysql") {
         if (docContent) {
           prompt += `\n\n## 数据库文档（已生成）`;
-          prompt += `\n以下是该数据库的完整技术文档，请基于此文档理解表结构、字段含义和表关系，在生成 SQL 时充分利用索引和表关系进行优化：\n`;
+          prompt += `\n以下是该数据库的完整技术文档，请基于此文档理解表结构、字段含义和表关系，在生成 SQL 时充分利用索引和表关系进行优化。记住：当用户要求增删改查时，只输出纯 SQL，不要加任何解释：\n`;
           prompt += `\n${docContent}`;
         } else {
           prompt += `\n\n## 数据库文档`;
