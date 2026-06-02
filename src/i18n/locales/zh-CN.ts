@@ -36,6 +36,11 @@ const raw = {
     delete: "删除",
     play: "执行 SQL",
     stop: "停止",
+    generateDoc: "生成文档",
+    generateDocTitle: "生成数据库文档",
+    generateDocConfirm: "将为数据库「{name}」生成技术文档，包含表结构说明、字段含义分析和表关系推断。是否继续？",
+    generateDocSuccess: "文档已保存到 {path}",
+    generateDocFailed: "文档生成失败: {error}",
     systemPrompt:
       "你是 TextQL，一个智能 SQL 客户端助手。" +
       "你的职责是帮助用户处理数据库相关任务：编写 SQL 查询、解释数据库概念、优化查询、设计表结构以及排查数据库问题。" +

@@ -1,24 +1,28 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { Menu, Select, Tree, Typography, message, Spin } from "antd";
+import { Menu, Select, Tree, Typography, message, Spin, Modal } from "antd";
 import { createPortal } from "react-dom";
 import type { DataNode } from "antd/es/tree";
 import {
   ReloadOutlined,
   CopyOutlined,
   CodeOutlined,
-  TableOutlined,
+  FileTextOutlined,
   FieldNumberOutlined,
 } from "@ant-design/icons";
 import type { MenuProps } from "antd";
 import { useTranslation } from "../../i18n";
-import { useSettings } from "../../settings/SettingsContext";
+import { useSettings, useModelConfig } from "../../settings/SettingsContext";
 import {
   listMysqlDatabases,
   listMysqlTables,
   listMysqlColumns,
   listRedisDatabases,
+  saveDocument,
 } from "../../db-api";
+import { createAIService } from "../../services";
+import type { ChatMessage, StreamCallbacks } from "../../services";
 import type { DataSourceConfig } from "../../settings/types";
+import type { ColumnInfo } from "../../db-api";
 import "./index.css";
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -31,21 +35,75 @@ function updateTreeData(list: DataNode[], key: React.Key, children: DataNode[]):
   });
 }
 
-function mapIcon(node: DataNode, connType: string | undefined): DataNode {
-  if (node.children && node.children.length > 0) return node;
-  // Already has icon
-  if (node.icon) return node;
-  // Leaf column node
-  if (connType === "mysql" && String(node.key).split(":").length >= 4) {
-    return { ...node, icon: <FieldNumberOutlined /> };
-  }
-  return node;
-}
-
 interface ContextState {
   x: number;
   y: number;
   node: DataNode;
+}
+
+/** True if the tree key represents a MySQL database node (2 segments) */
+function isMysqlDbNode(key: string): boolean {
+  return key.startsWith("mysql:") && key.split(":").length === 2;
+}
+
+// ── Schema fetching & prompt building ──────────────────────────
+
+interface TableSchema {
+  name: string;
+  columns: ColumnInfo[];
+}
+
+async function fetchDatabaseSchema(
+  config: DataSourceConfig,
+  dbName: string,
+): Promise<TableSchema[]> {
+  const tableNames = await listMysqlTables(config, dbName);
+  const tables: TableSchema[] = [];
+  for (const t of tableNames) {
+    const cols = await listMysqlColumns(config, dbName, t);
+    tables.push({ name: t, columns: cols });
+  }
+  return tables;
+}
+
+function buildDocPrompt(
+  datasourceName: string,
+  dbName: string,
+  tables: TableSchema[],
+): string {
+  const lines: string[] = [];
+
+  lines.push("你是一个数据库文档专家。请为以下 MySQL 数据库生成详细的技术文档（Markdown 格式）。");
+  lines.push("");
+  lines.push("## 数据源");
+  lines.push(`- 名称: ${datasourceName}`);
+  lines.push(`- 数据库: ${dbName}`);
+  lines.push("");
+
+  for (const table of tables) {
+    lines.push(`### 表: ${table.name}`);
+    lines.push("| 字段 | 类型 | 可空 | 键 | 默认值 |");
+    lines.push("|------|------|------|-----|--------|");
+    for (const col of table.columns) {
+      const nullable = col.nullable ? "YES" : "NO";
+      const key = col.key || "-";
+      const def = col.default ?? "-";
+      lines.push(`| ${col.name} | ${col.col_type} | ${nullable} | ${key} | ${def} |`);
+    }
+    lines.push("");
+  }
+
+  lines.push("## 要求");
+  lines.push("请生成完整的 Markdown 文档，包含以下章节：");
+  lines.push("1. **数据库概述** — 数据库的整体用途和业务特点");
+  lines.push("2. **表结构详解** — 逐一分析每个表的用途和每个字段的业务含义");
+  lines.push("3. **表关系分析** — 根据字段名、主键模式、外键命名推断表与表之间的关系");
+  lines.push("4. **索引与性能建议** — 基于现有主键和字段特征给出索引优化建议");
+  lines.push("5. **使用注意事项** — 数据一致性、约束、最佳实践");
+  lines.push("");
+  lines.push("请用中文编写，输出完整的 Markdown。");
+
+  return lines.join("\n");
 }
 
 // ── Component ──────────────────────────────────────────────────
@@ -53,12 +111,14 @@ interface ContextState {
 function SidebarBody() {
   const t = useTranslation();
   const { settings } = useSettings();
+  const modelConfig = useModelConfig();
   const connections = settings?.datasource?.connections ?? [];
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [treeData, setTreeData] = useState<DataNode[]>([]);
   const [loadingTree, setLoadingTree] = useState(false);
   const [ctxMenu, setCtxMenu] = useState<ContextState | null>(null);
+  const [generating, setGenerating] = useState(false);
   const [messageApi, contextHolder] = message.useMessage();
   const treeWrapRef = useRef<HTMLDivElement>(null);
 
@@ -91,7 +151,6 @@ function SidebarBody() {
             title: `DB${info.index}  (${info.key_count} keys)`,
             key: `redis:${info.index}`,
             isLeaf: true,
-            dbInfo: info,
           })),
         );
       }
@@ -118,10 +177,8 @@ function SidebarBody() {
 
         const key = String(node.key);
 
-        // MySQL: load tables for a database, or columns for a table
         if (selectedConfig.dbType === "mysql") {
           if (key.startsWith("mysql:") && key.split(":").length === 2) {
-            // DB node → load tables
             const dbName = key.replace("mysql:", "");
             listMysqlTables(selectedConfig, dbName)
               .then((tables) => {
@@ -146,7 +203,6 @@ function SidebarBody() {
           }
 
           if (key.startsWith("mysql:") && key.split(":").length === 3) {
-            // Table node → load columns
             const parts = key.split(":");
             const dbName = parts[1];
             const tableName = parts.slice(2).join(":");
@@ -231,14 +287,98 @@ function SidebarBody() {
     };
   }, [ctxMenu]);
 
-  const menuItems = useMemo<MenuProps["items"]>(
-    () => [
+  // ── Menu items: "生成文档" only for MySQL database nodes ──────
+  const menuItems = useMemo<MenuProps["items"]>(() => {
+    const items: MenuProps["items"] = [
       { key: "copy", icon: <CopyOutlined />, label: t("sidebar.ctx.copyName") },
       { key: "query", icon: <CodeOutlined />, label: t("sidebar.ctx.newQuery") },
       { key: "refresh", icon: <ReloadOutlined />, label: t("sidebar.ctx.refresh") },
-    ],
-    [t],
-  );
+    ];
+
+    // Add "生成文档" if right-clicked node is a MySQL database
+    if (ctxMenu && isMysqlDbNode(String(ctxMenu.node.key))) {
+      items.push({
+        key: "generateDoc",
+        icon: <FileTextOutlined />,
+        label: t("aiChat.generateDoc"),
+      });
+    }
+
+    return items;
+  }, [t, ctxMenu]);
+
+  // ── Generate documentation handler ────────────────────────────
+  const handleGenerateDoc = useCallback(async () => {
+    if (!ctxMenu || !selectedConfig) return;
+    const node = ctxMenu.node;
+    const dbName = String(node.key).replace("mysql:", "");
+    const datasourceName = selectedConfig.name;
+
+    setCtxMenu(null);
+
+    Modal.confirm({
+      title: t("aiChat.generateDocTitle"),
+      content: t("aiChat.generateDocConfirm", { name: dbName }),
+      okText: t("settings.save"),
+      cancelText: t("settings.reset"),
+      onOk: async () => {
+        setGenerating(true);
+        const hideLoading = messageApi.loading("正在获取表结构...", 0);
+
+        try {
+          // 1. Fetch full schema
+          const tables = await fetchDatabaseSchema(selectedConfig, dbName);
+          hideLoading();
+          messageApi.info(`已获取 ${tables.length} 个表，正在生成文档...`, 2);
+
+          // 2. Build prompt & call AI
+          const prompt = buildDocPrompt(datasourceName, dbName, tables);
+          const ai = createAIService(modelConfig);
+          const messages: ChatMessage[] = [
+            { role: "user", content: prompt },
+          ];
+
+          let fullContent = "";
+
+          ai.streamChat(messages, {
+            onChunk(content) {
+              fullContent += content;
+            },
+            onComplete: async (result) => {
+              try {
+                const filePath = await saveDocument(
+                  datasourceName,
+                  dbName,
+                  result || fullContent,
+                );
+                messageApi.success(
+                  t("aiChat.generateDocSuccess", { path: filePath }),
+                  5,
+                );
+              } catch (e) {
+                messageApi.error(
+                  t("aiChat.generateDocFailed", { error: String(e) }),
+                );
+              }
+              setGenerating(false);
+            },
+            onError(error) {
+              messageApi.error(
+                t("aiChat.generateDocFailed", { error: error.message }),
+              );
+              setGenerating(false);
+            },
+          } as StreamCallbacks);
+        } catch (e) {
+          hideLoading();
+          messageApi.error(
+            t("aiChat.generateDocFailed", { error: String(e) }),
+          );
+          setGenerating(false);
+        }
+      },
+    });
+  }, [ctxMenu, selectedConfig, modelConfig, messageApi, t]);
 
   const handleMenuClick: MenuProps["onClick"] = ({ key, domEvent }) => {
     domEvent.stopPropagation();
@@ -248,21 +388,25 @@ function SidebarBody() {
 
     switch (key) {
       case "refresh":
-        // Clear children to force reload on next expand
         setTreeData((origin) => updateTreeData(origin, node.key, []));
         messageApi.success(t("sidebar.msg.refreshed", { name: title }));
+        setCtxMenu(null);
         break;
       case "copy":
         navigator.clipboard
           ?.writeText(title)
           .then(() => messageApi.success(t("sidebar.msg.copied", { name: title })))
           .catch(() => messageApi.error(t("sidebar.msg.copyFailed")));
+        setCtxMenu(null);
         break;
       case "query":
         messageApi.info(t("sidebar.msg.queryTodo", { name: title }));
+        setCtxMenu(null);
+        break;
+      case "generateDoc":
+        handleGenerateDoc();
         break;
     }
-    setCtxMenu(null);
   };
 
   // ── Render ────────────────────────────────────────────────────
@@ -291,6 +435,7 @@ function SidebarBody() {
             treeData={treeData}
             showIcon
             blockNode
+            disabled={generating}
             onRightClick={({ event, node }) => {
               event.preventDefault();
               event.stopPropagation();

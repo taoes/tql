@@ -56,6 +56,22 @@ export async function listMysqlColumns(
   });
 }
 
+/**
+ * Save a generated document to ~/.config/tql/docs/<datasource>/<database>.md.
+ * Returns the saved file path on success.
+ */
+export async function saveDocument(
+  datasourceName: string,
+  database: string,
+  content: string,
+): Promise<string> {
+  return invoke<string>("save_document", {
+    datasourceName,
+    database,
+    content,
+  });
+}
+
 /** List all Redis databases with key counts. */
 export async function listRedisDatabases(
   config: DataSourceConfig,

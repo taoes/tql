@@ -38,6 +38,11 @@ const messages: Messages = {
     delete: "Delete",
     play: "Run SQL",
     stop: "Stop",
+    generateDoc: "Generate Docs",
+    generateDocTitle: "Generate Database Documentation",
+    generateDocConfirm: "Generate technical documentation for database \"{name}\", including table structure descriptions, field meaning analysis, and table relationship inference. Continue?",
+    generateDocSuccess: "Document saved to {path}",
+    generateDocFailed: "Document generation failed: {error}",
     systemPrompt:
       "You are TextQL, an intelligent SQL client assistant. " +
       "Your purpose is to help users with database-related tasks: writing SQL queries, explaining database concepts, optimizing queries, designing schemas, and troubleshooting database issues." +

@@ -43,6 +43,28 @@ fn save_settings(settings: serde_json::Value) -> Result<(), String> {
     Ok(())
 }
 
+// ── Document generation ─────────────────────────────────────────
+
+#[tauri::command]
+fn save_document(
+    datasource_name: String,
+    database: String,
+    content: String,
+) -> Result<String, String> {
+    let home = std::env::var("HOME").map_err(|e| format!("无法读取 HOME: {e}"))?;
+    let dir = PathBuf::from(home)
+        .join(".config")
+        .join("tql")
+        .join("docs")
+        .join(&datasource_name);
+    std::fs::create_dir_all(&dir)
+        .map_err(|e| format!("创建文档目录失败: {e}"))?;
+    let path = dir.join(format!("{}.md", database));
+    std::fs::write(&path, &content)
+        .map_err(|e| format!("写入文档失败: {e}"))?;
+    Ok(path.to_string_lossy().to_string())
+}
+
 // ── Async database commands ─────────────────────────────────────
 
 #[tauri::command]
@@ -114,6 +136,7 @@ pub fn run() {
             greet,
             load_settings,
             save_settings,
+            save_document,
             test_connection,
             list_mysql_databases,
             list_mysql_tables,

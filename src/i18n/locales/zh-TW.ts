@@ -38,6 +38,11 @@ const messages: Messages = {
     delete: "刪除",
     play: "執行 SQL",
     stop: "停止",
+    generateDoc: "產生文件",
+    generateDocTitle: "產生資料庫文件",
+    generateDocConfirm: "將為資料庫「{name}」產生技術文件，包含資料表結構說明、欄位含義分析與資料表關聯推斷。是否繼續？",
+    generateDocSuccess: "文件已儲存至 {path}",
+    generateDocFailed: "文件產生失敗: {error}",
     systemPrompt:
       "你是 TextQL，一個智慧 SQL 用戶端助手。" +
       "你的職責是幫助使用者處理資料庫相關任務：編寫 SQL 查詢、解釋資料庫概念、最佳化查詢、設計資料表結構以及排查資料庫問題。" +
