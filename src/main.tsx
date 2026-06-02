@@ -3,12 +3,15 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import { I18nProvider } from "./i18n";
 import { SettingsProvider } from "./settings/SettingsContext";
+import { ThemeProvider } from "./theme/ThemeProvider";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
     <I18nProvider>
       <SettingsProvider>
-        <App />
+        <ThemeProvider>
+          <App />
+        </ThemeProvider>
       </SettingsProvider>
     </I18nProvider>
   </React.StrictMode>

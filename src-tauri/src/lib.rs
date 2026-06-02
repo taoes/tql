@@ -3,6 +3,76 @@ use std::time::Duration;
 
 mod db;
 
+// ── Theme detection ────────────────────────────────────────────────
+
+/// Detect the OS-level color scheme.
+/// Returns "dark" or "light".
+#[tauri::command]
+fn get_system_theme() -> Result<String, String> {
+    #[cfg(target_os = "macos")]
+    {
+        let output = std::process::Command::new("defaults")
+            .args(["read", "-g", "AppleInterfaceStyle"])
+            .output()
+            .map_err(|e| format!("无法读取系统主题: {e}"))?;
+        if output.status.success() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            if stdout.trim() == "Dark" {
+                return Ok("dark".to_string());
+            }
+        }
+        Ok("light".to_string())
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        // Try GNOME gsettings first
+        let output = std::process::Command::new("gsettings")
+            .args(["get", "org.gnome.desktop.interface", "color-scheme"])
+            .output();
+        if let Ok(out) = output {
+            if out.status.success() {
+                let stdout = String::from_utf8_lossy(&out.stdout);
+                if stdout.contains("dark") || stdout.contains("prefer-dark") {
+                    return Ok("dark".to_string());
+                }
+            }
+        }
+        // Fallback: check GTK_THEME env var
+        if let Ok(gtk_theme) = std::env::var("GTK_THEME") {
+            if gtk_theme.to_lowercase().contains("dark") {
+                return Ok("dark".to_string());
+            }
+        }
+        Ok("light".to_string())
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        // Check Windows registry for app theme
+        let output = std::process::Command::new("reg")
+            .args([
+                "query",
+                r"HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
+                "/v",
+                "AppsUseLightTheme",
+            ])
+            .output()
+            .map_err(|e| format!("无法读取系统主题: {e}"))?;
+        if output.status.success() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            // 0x0 = dark, 0x1 = light
+            if stdout.contains("0x0") {
+                return Ok("dark".to_string());
+            }
+        }
+        Ok("light".to_string())
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
+    Ok("light".to_string())
+}
+
 // ── Existing sync commands ──────────────────────────────────────
 
 #[tauri::command]
@@ -207,6 +277,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             greet,
+            get_system_theme,
             load_settings,
             save_settings,
             read_document,
