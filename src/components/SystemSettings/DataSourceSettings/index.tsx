@@ -286,7 +286,22 @@ function DataSourceSettings({ value, onChange }: Props) {
           <Form.Item
             name="name"
             label={t("settings.datasource.formName")}
-            rules={[{ required: true, message: t("settings.datasource.formName") }]}
+            rules={[
+              { required: true, message: t("settings.datasource.formName") },
+              {
+                validator: (_: unknown, nameValue: string) => {
+                  if (!nameValue) return Promise.resolve();
+                  const duplicate = value.connections.find(
+                    (c) =>
+                      c.name === nameValue && c.id !== (editingId ?? ""),
+                  );
+                  if (duplicate) {
+                    return Promise.reject(new Error(t("settings.datasource.duplicateName")));
+                  }
+                  return Promise.resolve();
+                },
+              },
+            ]}
           >
             <Input />
           </Form.Item>

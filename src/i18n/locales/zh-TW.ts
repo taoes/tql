@@ -148,6 +148,7 @@ const messages: Messages = {
       testConnection: "測試連線",
       testSuccess: "連線成功",
       testFailed: "連線失敗: {error}",
+      duplicateName: "資料來源名稱已存在",
       noConnections: "暫無資料來源設定",
       loadingFailed: "載入資料庫列表失敗",
     },

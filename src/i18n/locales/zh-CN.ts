@@ -146,6 +146,7 @@ const raw = {
       testConnection: "测试连接",
       testSuccess: "连接成功",
       testFailed: "连接失败: {error}",
+      duplicateName: "数据源名称已存在",
       noConnections: "暂无数据源配置",
       loadingFailed: "加载数据库列表失败",
     },

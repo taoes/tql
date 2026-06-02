@@ -148,6 +148,7 @@ const messages: Messages = {
       testConnection: "Test Connection",
       testSuccess: "Connection successful",
       testFailed: "Connection failed: {error}",
+      duplicateName: "Data source name already exists",
       noConnections: "No data sources configured",
       loadingFailed: "Failed to load database list",
     },
