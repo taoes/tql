@@ -120,7 +120,7 @@ function ContentBody({ dbChatToOpen, onDbChatOpened }: ContentBodyProps) {
           </span>
         ),
         closable: true,
-        children: <AIChat onRunSql={handleRunSql} databaseContext={d.context} />,
+        children: <AIChat key={d.key} onRunSql={handleRunSql} databaseContext={d.context} />,
       })),
       ...sqlTabs.map((it) => ({
         key: it.key,
@@ -145,6 +145,7 @@ function ContentBody({ dbChatToOpen, onDbChatOpened }: ContentBodyProps) {
         <Tabs
           type="editable-card"
           hideAdd
+          destroyInactiveTabPane={false}
           activeKey={activeKey}
           onChange={setActiveKey}
           onEdit={handleEdit}

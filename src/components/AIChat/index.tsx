@@ -11,7 +11,7 @@ import { useTranslation } from "../../i18n";
 import { createAIService } from "../../services";
 import { useModelConfig } from "../../settings/SettingsContext";
 import type { ChatMessage, StreamCallbacks } from "../../services";
-import { Button, Space, Alert, message } from "antd";
+import { Button, Space, Alert, message, BorderBeam } from "antd";
 import ButtonGroup from "antd/lib/button/ButtonGroup";
 import { readDocument } from "../../db-api";
 import "./index.css";
@@ -76,6 +76,19 @@ export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
 
   // Document content for the current database context
   const [docContent, setDocContent] = useState<string | null>(null);
+
+  // Derive a stable context identity for reset detection
+  const contextId = databaseContext
+    ? `${databaseContext.datasourceName}::${databaseContext.databaseName}`
+    : null;
+
+  // Reset messages & doc when switching to a different database
+  useEffect(() => {
+    setMessages([
+      { key: "1", role: "assistant", content: t("aiChat.greeting") },
+    ]);
+    setDocContent(null);
+  }, [contextId]);
 
   /** Load documentation when database context changes */
   useEffect(() => {
@@ -282,16 +295,18 @@ export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
           title=""
           items={[]}
         />
-        <Sender
-          allowSpeech={false}
-          style={{ marginTop: 10 }}
-          onSubmit={handleSubmit}
-          submitType="shiftEnter"
-          placeholder={t("aiChat.placeholder")}
-          autoSize={{ minRows: 3, maxRows: 5 }}
-          footer={footer}
-          disabled={streaming}
-        />
+        <BorderBeam>
+          <Sender
+            allowSpeech={false}
+            style={{ marginTop: 10 }}
+            onSubmit={handleSubmit}
+            submitType="shiftEnter"
+            placeholder={t("aiChat.placeholder")}
+            autoSize={{ minRows: 3, maxRows: 5 }}
+            footer={footer}
+            disabled={streaming}
+          />
+        </BorderBeam>
       </div>
     </div>
   );
