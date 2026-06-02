@@ -15,7 +15,7 @@ import {
 } from "antd";
 import { PlusOutlined, DeleteOutlined, ReloadOutlined, EditOutlined } from "@ant-design/icons";
 import type { DatasourceSettings, DataSourceConfig, DbType } from "../../../settings/types";
-import { testConnection } from "../../../db-api";
+import { testConnection, renameDocumentFolder } from "../../../db-api";
 import { useTranslation } from "../../../i18n";
 import "./index.css";
 
@@ -157,6 +157,13 @@ function DataSourceSettings({ value, onChange }: Props) {
       };
 
       if (editingId) {
+        // If name changed, rename the docs folder to keep documents in sync
+        const oldConn = value.connections.find((c) => c.id === editingId);
+        if (oldConn && oldConn.name !== config.name) {
+          renameDocumentFolder(oldConn.name, config.name).catch(() => {
+            // Non-critical — don't block save if folder rename fails
+          });
+        }
         onChange({
           ...value,
           connections: value.connections.map((c) => (c.id === editingId ? config : c)),

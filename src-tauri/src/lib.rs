@@ -65,6 +65,25 @@ fn save_document(
     Ok(path.to_string_lossy().to_string())
 }
 
+/// Rename the docs folder when a data source is renamed.
+/// If the old folder doesn't exist, this is a no-op (returns Ok).
+#[tauri::command]
+fn rename_document_folder(
+    old_name: String,
+    new_name: String,
+) -> Result<(), String> {
+    let home = std::env::var("HOME").map_err(|e| format!("无法读取 HOME: {e}"))?;
+    let base = PathBuf::from(home).join(".config").join("tql").join("docs");
+    let old_path = base.join(&old_name);
+    let new_path = base.join(&new_name);
+
+    if old_path.exists() && !new_path.exists() {
+        std::fs::rename(&old_path, &new_path)
+            .map_err(|e| format!("重命名文档目录失败: {e}"))?;
+    }
+    Ok(())
+}
+
 // ── Async database commands ─────────────────────────────────────
 
 #[tauri::command]
@@ -137,6 +156,7 @@ pub fn run() {
             load_settings,
             save_settings,
             save_document,
+            rename_document_folder,
             test_connection,
             list_mysql_databases,
             list_mysql_tables,

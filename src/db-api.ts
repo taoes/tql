@@ -72,6 +72,20 @@ export async function saveDocument(
   });
 }
 
+/**
+ * Rename the docs folder when a data source is renamed.
+ * Called automatically when the user edits a data source name.
+ */
+export async function renameDocumentFolder(
+  oldName: string,
+  newName: string,
+): Promise<void> {
+  return invoke("rename_document_folder", {
+    oldName,
+    newName,
+  });
+}
+
 /** List all Redis databases with key counts. */
 export async function listRedisDatabases(
   config: DataSourceConfig,
