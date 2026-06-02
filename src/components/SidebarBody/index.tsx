@@ -328,8 +328,8 @@ function SidebarBody({
   // ── Menu items ──────────────────────────────────────────────
   const menuItems = useMemo<MenuProps["items"]>(() => {
     const items: MenuProps["items"] = [
-      { key: "copy", icon: <CopyOutlined />, label: t("sidebar.ctx.copyName") },
       { key: "refresh", icon: <ReloadOutlined />, label: t("sidebar.ctx.refresh") },
+      { key: "copy", icon: <CopyOutlined />, label: t("sidebar.ctx.copyName") },
     ];
 
     // "新建查询" and "生成文档" only for MySQL database nodes
