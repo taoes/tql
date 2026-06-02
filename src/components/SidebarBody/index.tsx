@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { Menu, Select, Tree, Typography, message, Spin, Modal } from "antd";
+import { Button, Menu, Select, Tree, Typography, message, Spin, Modal, Alert } from "antd";
 import { createPortal } from "react-dom";
 import type { DataNode } from "antd/es/tree";
 import {
@@ -8,6 +8,9 @@ import {
   CodeOutlined,
   FileTextOutlined,
   FieldNumberOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  LoadingOutlined,
 } from "@ant-design/icons";
 import type { MenuProps } from "antd";
 import { useTranslation } from "../../i18n";
@@ -39,6 +42,17 @@ interface ContextState {
   x: number;
   y: number;
   node: DataNode;
+}
+
+type DocGenPhase = "confirm" | "fetching" | "generating" | "done" | "error";
+
+interface DocGenState {
+  phase: DocGenPhase;
+  dbName: string;
+  datasourceName: string;
+  streamContent: string;
+  resultPath?: string;
+  errorMessage?: string;
 }
 
 /** True if the tree key represents a MySQL database node (2 segments) */
@@ -118,7 +132,7 @@ function SidebarBody() {
   const [treeData, setTreeData] = useState<DataNode[]>([]);
   const [loadingTree, setLoadingTree] = useState(false);
   const [ctxMenu, setCtxMenu] = useState<ContextState | null>(null);
-  const [generating, setGenerating] = useState(false);
+  const [docGen, setDocGen] = useState<DocGenState | null>(null);
   const [messageApi, contextHolder] = message.useMessage();
   const treeWrapRef = useRef<HTMLDivElement>(null);
 
@@ -308,77 +322,110 @@ function SidebarBody() {
   }, [t, ctxMenu]);
 
   // ── Generate documentation handler ────────────────────────────
-  const handleGenerateDoc = useCallback(async () => {
+  const handleGenerateDoc = useCallback(() => {
     if (!ctxMenu || !selectedConfig) return;
     const node = ctxMenu.node;
     const dbName = String(node.key).replace("mysql:", "");
-    const datasourceName = selectedConfig.name;
 
     setCtxMenu(null);
-
-    Modal.confirm({
-      title: t("aiChat.generateDocTitle"),
-      content: t("aiChat.generateDocConfirm", { name: dbName }),
-      okText: t("settings.save"),
-      cancelText: t("settings.reset"),
-      onOk: async () => {
-        setGenerating(true);
-        const hideLoading = messageApi.loading("正在获取表结构...", 0);
-
-        try {
-          // 1. Fetch full schema
-          const tables = await fetchDatabaseSchema(selectedConfig, dbName);
-          hideLoading();
-          messageApi.info(`已获取 ${tables.length} 个表，正在生成文档...`, 2);
-
-          // 2. Build prompt & call AI
-          const prompt = buildDocPrompt(datasourceName, dbName, tables);
-          const ai = createAIService(modelConfig);
-          const messages: ChatMessage[] = [
-            { role: "user", content: prompt },
-          ];
-
-          let fullContent = "";
-
-          ai.streamChat(messages, {
-            onChunk(content) {
-              fullContent += content;
-            },
-            onComplete: async (result) => {
-              try {
-                const filePath = await saveDocument(
-                  datasourceName,
-                  dbName,
-                  result || fullContent,
-                );
-                messageApi.success(
-                  t("aiChat.generateDocSuccess", { path: filePath }),
-                  5,
-                );
-              } catch (e) {
-                messageApi.error(
-                  t("aiChat.generateDocFailed", { error: String(e) }),
-                );
-              }
-              setGenerating(false);
-            },
-            onError(error) {
-              messageApi.error(
-                t("aiChat.generateDocFailed", { error: error.message }),
-              );
-              setGenerating(false);
-            },
-          } as StreamCallbacks);
-        } catch (e) {
-          hideLoading();
-          messageApi.error(
-            t("aiChat.generateDocFailed", { error: String(e) }),
-          );
-          setGenerating(false);
-        }
-      },
+    // Open confirm modal
+    setDocGen({
+      phase: "confirm",
+      dbName,
+      datasourceName: selectedConfig.name,
+      streamContent: "",
     });
-  }, [ctxMenu, selectedConfig, modelConfig, messageApi, t]);
+  }, [ctxMenu, selectedConfig]);
+
+  /** Called when user confirms generation */
+  const startDocGeneration = useCallback(async () => {
+    if (!docGen || !selectedConfig || !modelConfig) return;
+    const { dbName, datasourceName } = docGen;
+
+    // Phase: fetching schema
+    setDocGen((prev) => prev && { ...prev, phase: "fetching" });
+
+    try {
+      const tables = await fetchDatabaseSchema(selectedConfig, dbName);
+
+      // Phase: generating
+      setDocGen((prev) => prev && { ...prev, phase: "generating", streamContent: "" });
+
+      const prompt = buildDocPrompt(datasourceName, dbName, tables);
+      const ai = createAIService(modelConfig);
+      const messages: ChatMessage[] = [{ role: "user", content: prompt }];
+
+      ai.streamChat(messages, {
+        onChunk(content) {
+          setDocGen((prev) =>
+            prev ? { ...prev, streamContent: prev.streamContent + content } : null,
+          );
+        },
+        onComplete: async (result) => {
+          const finalContent = result;
+          try {
+            const filePath = await saveDocument(datasourceName, dbName, finalContent);
+            setDocGen((prev) =>
+              prev ? { ...prev, phase: "done", resultPath: filePath } : null,
+            );
+          } catch (e) {
+            setDocGen((prev) =>
+              prev
+                ? { ...prev, phase: "error", errorMessage: String(e) }
+                : null,
+            );
+          }
+        },
+        onError(error) {
+          setDocGen((prev) =>
+            prev
+              ? { ...prev, phase: "error", errorMessage: error.message }
+              : null,
+          );
+        },
+      } as StreamCallbacks);
+    } catch (e) {
+      setDocGen((prev) =>
+        prev ? { ...prev, phase: "error", errorMessage: String(e) } : null,
+      );
+    }
+  }, [docGen, selectedConfig, modelConfig]);
+
+  const closeDocGen = useCallback(() => setDocGen(null), []);
+
+  // ── Modal footer — varies by generation phase ────────────────
+  const docGenFooter = useMemo(() => {
+    if (!docGen) return null;
+    switch (docGen.phase) {
+      case "confirm":
+        return (
+          <>
+            <Button onClick={closeDocGen}>{t("settings.reset")}</Button>
+            <Button type="primary" onClick={startDocGeneration}>
+              {t("settings.save")}
+            </Button>
+          </>
+        );
+      case "fetching":
+      case "generating":
+        return null;
+      case "done":
+        return (
+          <Button type="primary" onClick={closeDocGen}>
+            关闭
+          </Button>
+        );
+      case "error":
+        return (
+          <>
+            <Button onClick={closeDocGen}>关闭</Button>
+            <Button type="primary" onClick={startDocGeneration}>
+              重试
+            </Button>
+          </>
+        );
+    }
+  }, [docGen, closeDocGen, startDocGeneration, t]);
 
   const handleMenuClick: MenuProps["onClick"] = ({ key, domEvent }) => {
     domEvent.stopPropagation();
@@ -435,7 +482,7 @@ function SidebarBody() {
             treeData={treeData}
             showIcon
             blockNode
-            disabled={generating}
+            disabled={docGen !== null}
             onRightClick={({ event, node }) => {
               event.preventDefault();
               event.stopPropagation();
@@ -461,6 +508,71 @@ function SidebarBody() {
           </div>,
           document.body,
         )}
+
+      {/* ── Document Generation Modal ─────────────────────────── */}
+      <Modal
+        title={t("aiChat.generateDocTitle")}
+        open={docGen !== null}
+        onCancel={closeDocGen}
+        footer={docGenFooter}
+        maskClosable={false}
+        closable={docGen?.phase !== "fetching" && docGen?.phase !== "generating"}
+        width={720}
+      >
+        {docGen?.phase === "confirm" && (
+          <p>{t("aiChat.generateDocConfirm", { name: docGen.dbName })}</p>
+        )}
+
+        {(docGen?.phase === "fetching" || docGen?.phase === "generating") && (
+          <div style={{ textAlign: "center", padding: "16px 0" }}>
+            <Spin indicator={<LoadingOutlined style={{ fontSize: 32 }} spin />} />
+            <p style={{ marginTop: 12, color: "#888" }}>
+              {docGen.phase === "fetching"
+                ? "正在获取表结构..."
+                : "正在生成文档..."}
+            </p>
+            {docGen.phase === "generating" && docGen.streamContent && (
+              <div
+                style={{
+                  marginTop: 16,
+                  maxHeight: 360,
+                  overflow: "auto",
+                  textAlign: "left",
+                  background: "#fafafa",
+                  borderRadius: 8,
+                  padding: 16,
+                  fontFamily: "monospace",
+                  fontSize: 13,
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word",
+                }}
+              >
+                {docGen.streamContent.slice(-2000)}
+              </div>
+            )}
+          </div>
+        )}
+
+        {docGen?.phase === "done" && (
+          <Alert
+            type="success"
+            icon={<CheckCircleOutlined />}
+            showIcon
+            message="文档生成完成"
+            description={t("aiChat.generateDocSuccess", { path: docGen.resultPath ?? "" })}
+          />
+        )}
+
+        {docGen?.phase === "error" && (
+          <Alert
+            type="error"
+            icon={<CloseCircleOutlined />}
+            showIcon
+            message="生成失败"
+            description={docGen.errorMessage}
+          />
+        )}
+      </Modal>
     </div>
   );
 }
