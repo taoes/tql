@@ -32,7 +32,7 @@
   position: fixed;
   z-index: 1100;
   min-width: 180px;
-  background: var(--color-card, #fff);
+  background: var(--popover);
   border-radius: 8px;
   box-shadow:
     0 6px 16px 0 rgba(0, 0, 0, 0.08),
@@ -54,8 +54,8 @@
 /* ── Data source info card ─────────────────────────────────── */
 
 .sidebar-ds-info {
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  border: 1px solid #e2e8f0;
+  background: var(--card);
+  border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
 }
@@ -65,15 +65,15 @@
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.6);
-  border-bottom: 1px solid #e2e8f0;
+  background: var(--sidebar-accent);
+  border-bottom: 1px solid var(--border);
 }
 
 .sidebar-ds-info-name {
   flex: 1;
   font-size: 13px;
   font-weight: 600;
-  color: #1e293b;
+  color: var(--foreground);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -102,7 +102,7 @@
 }
 
 .sidebar-ds-info-icon {
-  color: #94a3b8;
+  color: var(--muted-foreground);
   font-size: 11px;
   flex-shrink: 0;
 }
@@ -110,20 +110,20 @@
 .sidebar-ds-info-value {
   font-family: "SF Mono", "Fira Code", "JetBrains Mono", monospace;
   font-size: 11px;
-  background: #e2e8f0;
+  background: var(--secondary);
   padding: 1px 6px;
   border-radius: 4px;
-  color: #334155;
+  color: var(--secondary-foreground);
 }
 
 .sidebar-ds-info-sep {
-  color: #94a3b8;
+  color: var(--muted-foreground);
   font-family: monospace;
   font-size: 11px;
 }
 
 .sidebar-ds-info-divider {
-  color: #cbd5e1;
+  color: var(--border);
   margin: 0 2px;
   font-size: 11px;
 }
