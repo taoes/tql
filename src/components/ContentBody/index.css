@@ -27,7 +27,7 @@
   height: 100%;
 }
 
-.workspace-tabs .ant-tabs-tabpane {
+.workspace-tabs .ant-tabs-tabpane-active {
   height: 100%;
   display: flex;
   flex-direction: column;
