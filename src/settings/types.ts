@@ -37,6 +37,25 @@ export interface DataSourceDefaults {
   poolSize: number;
 }
 
+export type DbType = "mysql" | "redis";
+
+export interface DataSourceConfig {
+  id: string;
+  name: string;
+  dbType: DbType;
+  host: string;
+  port: number;
+  user: string;
+  password: string;
+  connectTimeout: number;
+  enableSsl: boolean;
+}
+
+export interface DatasourceSettings {
+  defaults: DataSourceDefaults;
+  connections: DataSourceConfig[];
+}
+
 export interface StyleSettings {
   themeMode: "light" | "dark" | "system";
   themeColor: "blue" | "green" | "purple" | "orange";
@@ -52,7 +71,7 @@ export interface AppSettings {
   general: GeneralSettings;
   basic: BasicSettings;
   model: ModelSettings;
-  datasource: DataSourceDefaults;
+  datasource: DatasourceSettings;
   style: StyleSettings;
 }
 
@@ -86,9 +105,12 @@ export const DEFAULT_SETTINGS: AppSettings = {
     contextMemory: true,
   },
   datasource: {
-    connectTimeout: 10,
-    enableSsl: true,
-    poolSize: 5,
+    defaults: {
+      connectTimeout: 10,
+      enableSsl: true,
+      poolSize: 5,
+    },
+    connections: [],
   },
   style: {
     themeMode: "light",

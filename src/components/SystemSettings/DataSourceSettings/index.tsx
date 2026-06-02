@@ -1,21 +1,58 @@
-import { useMemo } from "react";
-import { Button, InputNumber, Switch, Table, Typography, Space, Tag } from "antd";
-import { PlusOutlined, DeleteOutlined, ReloadOutlined } from "@ant-design/icons";
-import { DataSourceDefaults } from "../../../settings/types";
+import { useMemo, useState } from "react";
+import {
+  Button,
+  InputNumber,
+  Switch,
+  Table,
+  Typography,
+  Space,
+  Tag,
+  Modal,
+  Form,
+  Input,
+  Select,
+  message,
+} from "antd";
+import { PlusOutlined, DeleteOutlined, ReloadOutlined, EditOutlined } from "@ant-design/icons";
+import type { DatasourceSettings, DataSourceConfig, DbType } from "../../../settings/types";
+import { testConnection } from "../../../db-api";
 import { useTranslation } from "../../../i18n";
 import "./index.css";
 
 interface Props {
-  value: DataSourceDefaults;
-  onChange: (next: DataSourceDefaults) => void;
+  value: DatasourceSettings;
+  onChange: (next: DatasourceSettings) => void;
 }
+
+const PORT_DEFAULTS: Record<DbType, number> = {
+  mysql: 3306,
+  redis: 6379,
+};
+
+const emptyConfig = (defaults: DatasourceSettings["defaults"]): DataSourceConfig => ({
+  id: "",
+  name: "",
+  dbType: "mysql",
+  host: "localhost",
+  port: 3306,
+  user: "",
+  password: "",
+  connectTimeout: defaults.connectTimeout,
+  enableSsl: defaults.enableSsl,
+});
 
 function DataSourceSettings({ value, onChange }: Props) {
   const t = useTranslation();
-  const patch = (p: Partial<DataSourceDefaults>) => onChange({ ...value, ...p });
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<"success" | "fail" | null>(null);
+  const [form] = Form.useForm();
 
-  const connectedLabel = t("settings.datasource.statusConnected");
+  const patchDefaults = (p: Partial<DatasourceSettings["defaults"]>) =>
+    onChange({ ...value, defaults: { ...value.defaults, ...p } });
 
+  // ── Table columns ─────────────────────────────────────────
   const columns = useMemo(
     () => [
       {
@@ -25,63 +62,150 @@ function DataSourceSettings({ value, onChange }: Props) {
       },
       {
         title: t("settings.datasource.colType"),
-        dataIndex: "type",
-        key: "type",
-        render: (type: string) => <Tag>{type}</Tag>,
+        dataIndex: "dbType",
+        key: "dbType",
+        render: (dbType: DbType) => (
+          <Tag color={dbType === "mysql" ? "blue" : "orange"}>
+            {dbType === "mysql" ? "MySQL" : "Redis"}
+          </Tag>
+        ),
       },
       {
         title: t("settings.datasource.colHost"),
-        dataIndex: "host",
         key: "host",
+        render: (_: unknown, row: DataSourceConfig) => `${row.host}:${row.port}`,
       },
       {
         title: t("settings.datasource.colStatus"),
-        dataIndex: "status",
         key: "status",
-        render: (status: string) => (
-          <Tag color={status === connectedLabel ? "green" : "red"}>{status}</Tag>
-        ),
+        render: () => <Tag>{t("settings.datasource.statusUntested")}</Tag>,
       },
       {
         title: t("settings.datasource.colAction"),
         key: "action",
-        render: () => (
+        render: (_: unknown, row: DataSourceConfig) => (
           <Space size="small">
-            <Button size="small" icon={<ReloadOutlined />} type="text" />
-            <Button size="small" icon={<DeleteOutlined />} type="text" danger />
+            <Button
+              size="small"
+              icon={<ReloadOutlined />}
+              type="text"
+              onClick={() => handleTest(row)}
+            />
+            <Button
+              size="small"
+              icon={<EditOutlined />}
+              type="text"
+              onClick={() => openEdit(row)}
+            />
+            <Button
+              size="small"
+              icon={<DeleteOutlined />}
+              type="text"
+              danger
+              onClick={() => handleDelete(row)}
+            />
           </Space>
         ),
       },
     ],
-    [t, connectedLabel]
+    [t],
   );
 
-  const mockData = useMemo(
-    () => [
-      {
-        key: "1",
-        name: t("settings.datasource.sampleMysql"),
-        type: "MySQL",
-        host: "localhost:3306",
-        status: connectedLabel,
+  // ── CRUD handlers ─────────────────────────────────────────
+  const handleAdd = () => {
+    setEditingId(null);
+    setTestResult(null);
+    form.resetFields();
+    form.setFieldsValue({
+      dbType: "mysql",
+      host: "localhost",
+      port: 3306,
+      connectTimeout: value.defaults.connectTimeout,
+      enableSsl: value.defaults.enableSsl,
+    });
+    setModalOpen(true);
+  };
+
+  const openEdit = (row: DataSourceConfig) => {
+    setEditingId(row.id);
+    setTestResult(null);
+    form.setFieldsValue(row);
+    setModalOpen(true);
+  };
+
+  const handleDelete = (row: DataSourceConfig) => {
+    Modal.confirm({
+      title: t("settings.datasource.deleteConfirm", { name: row.name }),
+      okText: t("settings.save"),
+      cancelText: t("settings.reset"),
+      okButtonProps: { danger: true },
+      onOk: () => {
+        onChange({
+          ...value,
+          connections: value.connections.filter((c) => c.id !== row.id),
+        });
       },
-      {
-        key: "2",
-        name: t("settings.datasource.sampleRedis"),
-        type: "Redis",
-        host: "10.0.1.20:6379",
-        status: connectedLabel,
-      },
-      {
-        key: "3",
-        name: t("settings.datasource.sampleEs"),
-        type: "Elasticsearch",
-        host: "es.example.com:9200",
-        status: t("settings.datasource.statusDisconnected"),
-      },
-    ],
-    [t, connectedLabel]
-  );
+    });
+  };
+
+  const handleSave = async () => {
+    try {
+      const fields = await form.validateFields();
+      const config: DataSourceConfig = {
+        ...fields,
+        id: editingId ?? crypto.randomUUID(),
+      };
+
+      if (editingId) {
+        onChange({
+          ...value,
+          connections: value.connections.map((c) => (c.id === editingId ? config : c)),
+        });
+      } else {
+        onChange({
+          ...value,
+          connections: [...value.connections, config],
+        });
+      }
+      setModalOpen(false);
+    } catch {
+      // validation failed — Ant Design shows inline errors
+    }
+  };
+
+  const handleTest = async (row?: DataSourceConfig) => {
+    // If called from modal, read the current form values
+    let config: DataSourceConfig;
+    if (row) {
+      config = row;
+    } else {
+      try {
+        const fields = await form.validateFields();
+        config = {
+          ...(fields as DataSourceConfig),
+          id: editingId ?? "temp-test",
+        };
+      } catch {
+        return;
+      }
+    }
+
+    setTesting(true);
+    setTestResult(null);
+    try {
+      await testConnection(config);
+      setTestResult("success");
+      message.success(t("settings.datasource.testSuccess"));
+    } catch (e) {
+      setTestResult("fail");
+      message.error(t("settings.datasource.testFailed", { error: String(e) }));
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  // ── Modal form ────────────────────────────────────────────
+  const dbTypeVal: DbType = Form.useWatch("dbType", form) ?? "mysql";
 
   return (
     <div className="settings-panel datasource-panel">
@@ -89,31 +213,35 @@ function DataSourceSettings({ value, onChange }: Props) {
         {t("settings.datasource.title")}
       </Typography.Title>
 
+      {/* Connection list */}
       <div className="settings-section">
         <div className="datasource-header">
           <span className="settings-section-title datasource-header-title">
             {t("settings.datasource.sectionConfigured")}
           </span>
-          <Button type="primary" icon={<PlusOutlined />} size="small">
+          <Button type="primary" icon={<PlusOutlined />} size="small" onClick={handleAdd}>
             {t("settings.datasource.add")}
           </Button>
         </div>
         <Table
           columns={columns}
-          dataSource={mockData}
+          dataSource={value.connections}
+          rowKey="id"
           pagination={false}
           size="small"
           style={{ marginTop: 8 }}
+          locale={{ emptyText: t("settings.datasource.noConnections") }}
         />
       </div>
 
+      {/* Connection defaults */}
       <div className="settings-section">
         <div className="settings-section-title">{t("settings.datasource.sectionDefaults")}</div>
         <div className="settings-row">
           <span className="settings-row-label">{t("settings.datasource.connectTimeout")}</span>
           <InputNumber
-            value={value.connectTimeout}
-            onChange={(v) => patch({ connectTimeout: Number(v ?? 0) })}
+            value={value.defaults.connectTimeout}
+            onChange={(v) => patchDefaults({ connectTimeout: Number(v ?? 0) })}
             min={1}
             max={600}
             style={{ width: 120 }}
@@ -121,19 +249,97 @@ function DataSourceSettings({ value, onChange }: Props) {
         </div>
         <div className="settings-row">
           <span className="settings-row-label">{t("settings.datasource.enableSsl")}</span>
-          <Switch checked={value.enableSsl} onChange={(v) => patch({ enableSsl: v })} />
+          <Switch
+            checked={value.defaults.enableSsl}
+            onChange={(v) => patchDefaults({ enableSsl: v })}
+          />
         </div>
         <div className="settings-row">
           <span className="settings-row-label">{t("settings.datasource.poolSize")}</span>
           <InputNumber
-            value={value.poolSize}
-            onChange={(v) => patch({ poolSize: Number(v ?? 0) })}
+            value={value.defaults.poolSize}
+            onChange={(v) => patchDefaults({ poolSize: Number(v ?? 0) })}
             min={1}
             max={100}
             style={{ width: 120 }}
           />
         </div>
       </div>
+
+      {/* Add / Edit Modal */}
+      <Modal
+        title={editingId ? t("settings.datasource.editTitle") : t("settings.datasource.addTitle")}
+        open={modalOpen}
+        onCancel={() => setModalOpen(false)}
+        onOk={handleSave}
+        okText={t("settings.save")}
+        cancelText={t("settings.reset")}
+      >
+        <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
+          <Form.Item
+            name="name"
+            label={t("settings.datasource.formName")}
+            rules={[{ required: true, message: t("settings.datasource.formName") }]}
+          >
+            <Input />
+          </Form.Item>
+
+          <Form.Item name="dbType" label={t("settings.datasource.formType")}>
+            <Select
+              options={[
+                { value: "mysql", label: "MySQL" },
+                { value: "redis", label: "Redis" },
+              ]}
+            />
+          </Form.Item>
+
+          <Space style={{ width: "100%" }} size="middle">
+            <Form.Item
+              name="host"
+              label={t("settings.datasource.formHost")}
+              rules={[{ required: true }]}
+              style={{ flex: 1 }}
+            >
+              <Input />
+            </Form.Item>
+            <Form.Item
+              name="port"
+              label={t("settings.datasource.formPort")}
+              style={{ width: 120 }}
+            >
+              <InputNumber min={1} max={65535} style={{ width: "100%" }} />
+            </Form.Item>
+          </Space>
+
+          {dbTypeVal === "mysql" && (
+            <Form.Item name="user" label={t("settings.datasource.formUser")}>
+              <Input />
+            </Form.Item>
+          )}
+
+          <Form.Item name="password" label={t("settings.datasource.formPassword")}>
+            <Input.Password />
+          </Form.Item>
+
+          <Form.Item name="connectTimeout" label={t("settings.datasource.connectTimeout")}>
+            <InputNumber min={1} max={600} style={{ width: 160 }} addonAfter="s" />
+          </Form.Item>
+
+          <Form.Item name="enableSsl" label={t("settings.datasource.enableSsl")} valuePropName="checked">
+            <Switch />
+          </Form.Item>
+        </Form>
+
+        <Button
+          onClick={() => handleTest()}
+          loading={testing}
+          style={{ marginTop: 8 }}
+          type={testResult === "success" ? "primary" : testResult === "fail" ? "dashed" : "default"}
+          danger={testResult === "fail"}
+        >
+          {t("settings.datasource.testConnection")}
+        </Button>
+      </Modal>
     </div>
   );
 }

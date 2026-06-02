@@ -1,58 +1,46 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Menu, Select, Tree, Typography, message } from "antd";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { Menu, Select, Tree, Typography, message, Spin } from "antd";
 import { createPortal } from "react-dom";
 import type { DataNode } from "antd/es/tree";
 import {
   ReloadOutlined,
   CopyOutlined,
   CodeOutlined,
-  FileTextOutlined,
+  TableOutlined,
+  FieldNumberOutlined,
 } from "@ant-design/icons";
 import type { MenuProps } from "antd";
 import { useTranslation } from "../../i18n";
+import { useSettings } from "../../settings/SettingsContext";
+import {
+  listMysqlDatabases,
+  listMysqlTables,
+  listMysqlColumns,
+  listRedisDatabases,
+} from "../../db-api";
+import type { DataSourceConfig } from "../../settings/types";
 import "./index.css";
 
-const dataSources = [
-  {
-    group: "MySQL",
-    items: [
-      { value: "mysql-local", label: "localhost:3306" },
-      { value: "mysql-dev", label: "10.0.1.12:3306" },
-      { value: "mysql-prod", label: "prod-mysql.example.com:3306" },
-    ],
-  },
-  {
-    group: "Redis",
-    items: [
-      { value: "redis-local", label: "localhost:6379" },
-      { value: "redis-dev", label: "10.0.1.20:6379" },
-      { value: "redis-prod", label: "prod-redis.example.com:6379" },
-    ],
-  },
-  {
-    group: "Elasticsearch",
-    items: [
-      { value: "es-local", label: "http://localhost:9200" },
-      { value: "es-dev", label: "http://10.0.1.35:9200" },
-      { value: "es-prod", label: "https://es.example.com:9200" },
-    ],
-  },
-];
+// ── Helpers ────────────────────────────────────────────────────
 
-const updateTreeData = (
-  list: DataNode[],
-  key: React.Key,
-  children: DataNode[]
-): DataNode[] =>
-  list.map((node) => {
-    if (node.key === key) {
-      return { ...node, children };
-    }
-    if (node.children) {
-      return { ...node, children: updateTreeData(node.children, key, children) };
-    }
+function updateTreeData(list: DataNode[], key: React.Key, children: DataNode[]): DataNode[] {
+  return list.map((node) => {
+    if (node.key === key) return { ...node, children };
+    if (node.children) return { ...node, children: updateTreeData(node.children, key, children) };
     return node;
   });
+}
+
+function mapIcon(node: DataNode, connType: string | undefined): DataNode {
+  if (node.children && node.children.length > 0) return node;
+  // Already has icon
+  if (node.icon) return node;
+  // Leaf column node
+  if (connType === "mysql" && String(node.key).split(":").length >= 4) {
+    return { ...node, icon: <FieldNumberOutlined /> };
+  }
+  return node;
+}
 
 interface ContextState {
   x: number;
@@ -60,44 +48,174 @@ interface ContextState {
   node: DataNode;
 }
 
+// ── Component ──────────────────────────────────────────────────
+
 function SidebarBody() {
   const t = useTranslation();
-  const [dataSource, setDataSource] = useState("mysql-local");
-  const [treeData, setTreeData] = useState<DataNode[]>(() => [
-    { title: t("sidebar.tables"), key: "tables", selectable: false },
-    { title: t("sidebar.views"), key: "views", selectable: false },
-    { title: t("sidebar.functions"), key: "functions", isLeaf: true },
-  ]);
+  const { settings } = useSettings();
+  const connections = settings?.datasource?.connections ?? [];
+
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [treeData, setTreeData] = useState<DataNode[]>([]);
+  const [loadingTree, setLoadingTree] = useState(false);
   const [ctxMenu, setCtxMenu] = useState<ContextState | null>(null);
   const [messageApi, contextHolder] = message.useMessage();
   const treeWrapRef = useRef<HTMLDivElement>(null);
 
-  const selectOptions = dataSources.map((group) => ({
-    label: group.group,
-    options: group.items,
-  }));
+  const selectedConfig = useMemo(
+    () => connections.find((c) => c.id === selectedId) ?? null,
+    [connections, selectedId],
+  );
 
-  const onLoadData = ({ key, children }: DataNode) =>
-    new Promise<void>((resolve) => {
-      if (children) {
-        resolve();
-        return;
-      }
-      setTimeout(() => {
-        setTreeData((origin) =>
-          updateTreeData(origin, key, [
-            { title: `${key}-child-1`, key: `${key}-0` },
-            { title: `${key}-child-2`, key: `${key}-1` },
-          ])
+  // ── Load root tree nodes when data source changes ────────────
+  const loadRoot = useCallback(async () => {
+    if (!selectedConfig) {
+      setTreeData([]);
+      return;
+    }
+    setLoadingTree(true);
+    try {
+      if (selectedConfig.dbType === "mysql") {
+        const dbs = await listMysqlDatabases(selectedConfig);
+        setTreeData(
+          dbs.map((db) => ({
+            title: db,
+            key: `mysql:${db}`,
+            isLeaf: false,
+          })),
         );
-        resolve();
-      }, 800);
-    });
+      } else {
+        const dbs = await listRedisDatabases(selectedConfig);
+        setTreeData(
+          dbs.map((info) => ({
+            title: `DB${info.index}  (${info.key_count} keys)`,
+            key: `redis:${info.index}`,
+            isLeaf: true,
+            dbInfo: info,
+          })),
+        );
+      }
+    } catch (e) {
+      messageApi.error(t("settings.datasource.loadingFailed"));
+      setTreeData([]);
+    } finally {
+      setLoadingTree(false);
+    }
+  }, [selectedConfig, messageApi, t]);
 
+  useEffect(() => {
+    loadRoot();
+  }, [loadRoot]);
+
+  // ── Lazy-load tree children ──────────────────────────────────
+  const onLoadData = useCallback(
+    (node: DataNode): Promise<void> =>
+      new Promise<void>((resolve) => {
+        if (node.children || !selectedConfig) {
+          resolve();
+          return;
+        }
+
+        const key = String(node.key);
+
+        // MySQL: load tables for a database, or columns for a table
+        if (selectedConfig.dbType === "mysql") {
+          if (key.startsWith("mysql:") && key.split(":").length === 2) {
+            // DB node → load tables
+            const dbName = key.replace("mysql:", "");
+            listMysqlTables(selectedConfig, dbName)
+              .then((tables) => {
+                setTreeData((origin) =>
+                  updateTreeData(
+                    origin,
+                    key,
+                    tables.map((t) => ({
+                      title: t,
+                      key: `${key}:${t}`,
+                      isLeaf: false,
+                    })),
+                  ),
+                );
+                resolve();
+              })
+              .catch((e) => {
+                messageApi.error(String(e));
+                resolve();
+              });
+            return;
+          }
+
+          if (key.startsWith("mysql:") && key.split(":").length === 3) {
+            // Table node → load columns
+            const parts = key.split(":");
+            const dbName = parts[1];
+            const tableName = parts.slice(2).join(":");
+            listMysqlColumns(selectedConfig, dbName, tableName)
+              .then((cols) => {
+                setTreeData((origin) =>
+                  updateTreeData(
+                    origin,
+                    key,
+                    cols.map((col) => {
+                      const pk = col.key === "PRI" ? " ⚷" : "";
+                      const nullable = col.nullable ? "?" : "";
+                      return {
+                        title: `${col.name}  ${col.col_type}${nullable}${pk}`,
+                        key: `${key}:${col.name}`,
+                        isLeaf: true,
+                        icon: <FieldNumberOutlined />,
+                      };
+                    }),
+                  ),
+                );
+                resolve();
+              })
+              .catch((e) => {
+                messageApi.error(String(e));
+                resolve();
+              });
+            return;
+          }
+        }
+
+        resolve();
+      }),
+    [selectedConfig, messageApi],
+  );
+
+  // ── Select options grouped by type ────────────────────────────
+  const selectOptions = useMemo(() => {
+    const groups: { label: string; options: { value: string; label: string }[] }[] = [];
+
+    const mysqlConns = connections.filter((c) => c.dbType === "mysql");
+    if (mysqlConns.length > 0) {
+      groups.push({
+        label: "MySQL",
+        options: mysqlConns.map((c) => ({
+          value: c.id,
+          label: `${c.name} (${c.host}:${c.port})`,
+        })),
+      });
+    }
+
+    const redisConns = connections.filter((c) => c.dbType === "redis");
+    if (redisConns.length > 0) {
+      groups.push({
+        label: "Redis",
+        options: redisConns.map((c) => ({
+          value: c.id,
+          label: `${c.name} (${c.host}:${c.port})`,
+        })),
+      });
+    }
+
+    return groups;
+  }, [connections]);
+
+  // ── Context menu ──────────────────────────────────────────────
   useEffect(() => {
     if (!ctxMenu) return;
     const close = () => setCtxMenu(null);
-    // wait for the current contextmenu bubble to finish so the menu isn't closed by its own open event
     const timer = window.setTimeout(() => {
       window.addEventListener("mousedown", close);
       window.addEventListener("contextmenu", close);
@@ -114,12 +232,12 @@ function SidebarBody() {
   }, [ctxMenu]);
 
   const menuItems = useMemo<MenuProps["items"]>(
-    () => [  
-      { key: "copy", icon: <CopyOutlined />, label: '重新索引' },
-      { key: "query", icon: <CodeOutlined />, label: '新建控制台' },
-      { key: "refresh", icon: <ReloadOutlined />, label: '刷新数据库' },
+    () => [
+      { key: "copy", icon: <CopyOutlined />, label: t("sidebar.ctx.copyName") },
+      { key: "query", icon: <CodeOutlined />, label: t("sidebar.ctx.newQuery") },
+      { key: "refresh", icon: <ReloadOutlined />, label: t("sidebar.ctx.refresh") },
     ],
-    [t]
+    [t],
   );
 
   const handleMenuClick: MenuProps["onClick"] = ({ key, domEvent }) => {
@@ -130,6 +248,7 @@ function SidebarBody() {
 
     switch (key) {
       case "refresh":
+        // Clear children to force reload on next expand
         setTreeData((origin) => updateTreeData(origin, node.key, []));
         messageApi.success(t("sidebar.msg.refreshed", { name: title }));
         break;
@@ -142,39 +261,43 @@ function SidebarBody() {
       case "query":
         messageApi.info(t("sidebar.msg.queryTodo", { name: title }));
         break;
-      case "ddl":
-        messageApi.info(t("sidebar.msg.ddlTodo", { name: title }));
-        break;
     }
     setCtxMenu(null);
   };
 
+  // ── Render ────────────────────────────────────────────────────
   return (
     <div className="sidebar-body">
       {contextHolder}
       <div className="sidebar-body-section">
         <Typography.Text type="secondary">{t("sidebar.dataSource")}</Typography.Text>
         <Select
-          value={dataSource}
-          onChange={setDataSource}
+          value={selectedId}
+          onChange={setSelectedId}
           options={selectOptions}
           style={{ width: "100%", height: "32px" }}
+          placeholder={t("settings.datasource.noConnections")}
+          notFoundContent={t("settings.datasource.noConnections")}
         />
       </div>
 
       <div className="sidebar-body-section sidebar-tree" ref={treeWrapRef}>
         <Typography.Text type="secondary">{t("sidebar.database")}</Typography.Text>
-        <Tree
-          loadData={onLoadData}
-          treeData={treeData}
-          showIcon
-          blockNode
-          onRightClick={({ event, node }) => {
-            event.preventDefault();
-            event.stopPropagation();
-            setCtxMenu({ x: event.clientX, y: event.clientY, node });
-          }}
-        />
+        {loadingTree ? (
+          <Spin style={{ marginTop: 12 }} />
+        ) : (
+          <Tree
+            loadData={onLoadData}
+            treeData={treeData}
+            showIcon
+            blockNode
+            onRightClick={({ event, node }) => {
+              event.preventDefault();
+              event.stopPropagation();
+              setCtxMenu({ x: event.clientX, y: event.clientY, node });
+            }}
+          />
+        )}
       </div>
 
       {ctxMenu &&
@@ -191,7 +314,7 @@ function SidebarBody() {
               selectable={false}
             />
           </div>,
-          document.body
+          document.body,
         )}
     </div>
   );

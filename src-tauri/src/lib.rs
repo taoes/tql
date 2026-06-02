@@ -1,6 +1,10 @@
 use std::path::PathBuf;
+use std::time::Duration;
 
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
+mod db;
+
+// ── Existing sync commands ──────────────────────────────────────
+
 #[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
@@ -39,11 +43,83 @@ fn save_settings(settings: serde_json::Value) -> Result<(), String> {
     Ok(())
 }
 
+// ── Async database commands ─────────────────────────────────────
+
+#[tauri::command]
+async fn test_connection(config: db::types::DataSourceConfig) -> Result<bool, String> {
+    let timeout = Duration::from_secs(config.connect_timeout.max(1) as u64);
+    tokio::time::timeout(timeout, async {
+        match &config.db_type {
+            db::types::DbType::MySql => db::mysql::test_connection(&config).await,
+            db::types::DbType::Redis => db::redis::test_connection(&config).await,
+        }
+    })
+    .await
+    .map_err(|_| format!("Connection timed out after {}s", config.connect_timeout))?
+}
+
+#[tauri::command]
+async fn list_mysql_databases(
+    config: db::types::DataSourceConfig,
+) -> Result<Vec<String>, String> {
+    let timeout = Duration::from_secs(config.connect_timeout.max(1) as u64);
+    tokio::time::timeout(timeout, db::mysql::list_databases(&config))
+        .await
+        .map_err(|_| format!("Connection timed out after {}s", config.connect_timeout))?
+}
+
+#[tauri::command]
+async fn list_mysql_tables(
+    config: db::types::DataSourceConfig,
+    database: String,
+) -> Result<Vec<String>, String> {
+    let timeout = Duration::from_secs(config.connect_timeout.max(1) as u64);
+    tokio::time::timeout(timeout, db::mysql::list_tables(&config, &database))
+        .await
+        .map_err(|_| format!("Connection timed out after {}s", config.connect_timeout))?
+}
+
+#[tauri::command]
+async fn list_mysql_columns(
+    config: db::types::DataSourceConfig,
+    database: String,
+    table: String,
+) -> Result<Vec<db::types::ColumnInfo>, String> {
+    let timeout = Duration::from_secs(config.connect_timeout.max(1) as u64);
+    tokio::time::timeout(
+        timeout,
+        db::mysql::list_columns(&config, &database, &table),
+    )
+    .await
+    .map_err(|_| format!("Connection timed out after {}s", config.connect_timeout))?
+}
+
+#[tauri::command]
+async fn list_redis_databases(
+    config: db::types::DataSourceConfig,
+) -> Result<Vec<db::types::RedisDbInfo>, String> {
+    let timeout = Duration::from_secs(config.connect_timeout.max(1) as u64);
+    tokio::time::timeout(timeout, db::redis::list_databases(&config))
+        .await
+        .map_err(|_| format!("Connection timed out after {}s", config.connect_timeout))?
+}
+
+// ── Application entry ───────────────────────────────────────────
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet, load_settings, save_settings])
+        .invoke_handler(tauri::generate_handler![
+            greet,
+            load_settings,
+            save_settings,
+            test_connection,
+            list_mysql_databases,
+            list_mysql_tables,
+            list_mysql_columns,
+            list_redis_databases,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

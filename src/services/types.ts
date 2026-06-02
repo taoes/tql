@@ -50,9 +50,5 @@ export interface AIService {
    *
    * @returns An AbortController that can be used to cancel the stream.
    */
-  streamChat(
-    messages: ChatMessage[],
-    callbacks: StreamCallbacks,
-    signal?: AbortSignal,
-  ): AbortController;
+  streamChat(messages: ChatMessage[],callbacks: StreamCallbacks,signal?: AbortSignal,): AbortController;
 }
