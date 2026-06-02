@@ -4,6 +4,12 @@
 
 TQL 是一款基于 Tauri 2、React 19 和 Ant Design 6 构建的跨平台桌面数据库查询工具。它提供统一界面来查询和管理多种数据源（MySQL、Redis、Elasticsearch 等），集成 AI 助手和系统设置面板，并通过应用级快捷键操控。
 
+
+![](./docs/screenshots/index-3.png)
+[更多预览](./docs/screenshots/)
+
+
+
 ## 项目背景
 
 现代数据工程师和开发者经常需要在多个数据库工具之间切换，这些工具 UI 不一致且存在上下文切换成本。TQL 的解决方案：

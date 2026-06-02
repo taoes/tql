@@ -4,6 +4,9 @@
 
 TQL is a cross-platform desktop database query tool built with Tauri 2, React 19, and Ant Design 6. It provides a unified interface to query and manage multiple data sources (MySQL, Redis, Elasticsearch, etc.), featuring an integrated AI assistant and a system settings panel controlled by application-level keyboard shortcuts.
 
+![](./docs/screenshots/index-3.png)
+[More](./docs/screenshots/)
+
 ## Background
 
 Modern data engineers and developers often juggle multiple database tools with inconsistent UIs and context-switching overhead. TQL addresses this by providing:
