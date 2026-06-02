@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { Button, Menu, Select, Tree, Typography, message, Spin, Modal, Alert, Tag, Space, Tooltip } from "antd";
+import { Button, Menu, Select, Tree, Typography, message, Spin, Modal, Alert, Tag, Tooltip } from "antd";
 import { createPortal } from "react-dom";
 import type { DataNode } from "antd/es/tree";
 import {
@@ -12,6 +12,9 @@ import {
   CheckCircleOutlined,
   CloseCircleOutlined,
   LoadingOutlined,
+  EnvironmentOutlined,
+  LinkOutlined,
+  UserOutlined,
 } from "@ant-design/icons";
 import type { MenuProps } from "antd";
 import { useTranslation } from "../../i18n";
@@ -509,52 +512,41 @@ function SidebarBody({
         />
       </div>
 
-      {/* Selected data source info — horizontal layout */}
+      {/* Selected data source info card */}
       {selectedConfig && (
-        <div
-          style={{
-            padding: "6px 8px",
-            background: "#fafafa",
-            borderRadius: 6,
-            fontSize: 12,
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "4px 16px",
-          }}
-        >
-          <span style={{ color: "#666" }}>
-            名称: <strong>{selectedConfig.name}</strong>
-            <Tooltip title="复制">
+        <div className="sidebar-ds-info">
+          <div className="sidebar-ds-info-header">
+            <Tag
+              color={selectedConfig.dbType === "mysql" ? "geekblue" : "orange"}
+              style={{ margin: 0 }}
+            >
+              {selectedConfig.dbType === "mysql" ? "MySQL" : "Redis"}
+            </Tag>
+            <span className="sidebar-ds-info-name">{selectedConfig.name}</span>
+            <Tooltip title="复制连接串">
               <Button
+                className="sidebar-ds-info-copy-btn"
                 type="text"
                 size="small"
-                icon={copiedField === "name" ? <CheckOutlined style={{ color: "#52c41a" }} /> : <CopyOutlined />}
-                onClick={() => copyToClipboard(selectedConfig.name, "name")}
+                icon={copiedField === "conn" ? <CheckOutlined style={{ color: "#52c41a" }} /> : <LinkOutlined style={{ fontSize: 12 }} />}
+                onClick={() => copyToClipboard(`${selectedConfig.host}:${selectedConfig.port}`, "conn")}
               />
             </Tooltip>
-          </span>
-          <span style={{ color: "#666" }}>
-            IP: <strong>{selectedConfig.host}</strong>
-            <Tooltip title="复制">
-              <Button
-                type="text"
-                size="small"
-                icon={copiedField === "ip" ? <CheckOutlined style={{ color: "#52c41a" }} /> : <CopyOutlined />}
-                onClick={() => copyToClipboard(selectedConfig.host, "ip")}
-              />
-            </Tooltip>
-          </span>
-          <span style={{ color: "#666" }}>
-            地址: <strong>{selectedConfig.host}:{selectedConfig.port}</strong>
-            <Tooltip title="复制">
-              <Button
-                type="text"
-                size="small"
-                icon={copiedField === "addr" ? <CheckOutlined style={{ color: "#52c41a" }} /> : <CopyOutlined />}
-                onClick={() => copyToClipboard(`${selectedConfig.host}:${selectedConfig.port}`, "addr")}
-              />
-            </Tooltip>
-          </span>
+          </div>
+          <div className="sidebar-ds-info-body">
+            <div className="sidebar-ds-info-row">
+              <EnvironmentOutlined className="sidebar-ds-info-icon" />
+              <code className="sidebar-ds-info-value">{selectedConfig.host}</code>
+              <span className="sidebar-ds-info-sep">:</span>
+              <code className="sidebar-ds-info-value">{selectedConfig.port}</code>
+              {selectedConfig.user && (
+                <div className="sidebar-ds-info-row">
+                  <UserOutlined className="sidebar-ds-info-icon" />
+                  <code className="sidebar-ds-info-value">{selectedConfig.user}</code>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 

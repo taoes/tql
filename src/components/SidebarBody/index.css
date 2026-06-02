@@ -51,3 +51,80 @@
   border-radius: 0 !important;
 }
 
+/* ── Data source info card ─────────────────────────────────── */
+
+.sidebar-ds-info {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.sidebar-ds-info-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.6);
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.sidebar-ds-info-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-ds-info-copy-btn {
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.sidebar-ds-info-header:hover .sidebar-ds-info-copy-btn,
+.sidebar-ds-info-body:hover .sidebar-ds-info-copy-btn {
+  opacity: 1;
+}
+
+.sidebar-ds-info-body {
+  padding: 8px 12px;
+}
+
+.sidebar-ds-info-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  flex-wrap: wrap;
+}
+
+.sidebar-ds-info-icon {
+  color: #94a3b8;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.sidebar-ds-info-value {
+  font-family: "SF Mono", "Fira Code", "JetBrains Mono", monospace;
+  font-size: 11px;
+  background: #e2e8f0;
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: #334155;
+}
+
+.sidebar-ds-info-sep {
+  color: #94a3b8;
+  font-family: monospace;
+  font-size: 11px;
+}
+
+.sidebar-ds-info-divider {
+  color: #cbd5e1;
+  margin: 0 2px;
+  font-size: 11px;
+}
+

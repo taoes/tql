@@ -243,7 +243,7 @@ export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
       <div className="ai-chat-input">
         <Prompts
           title=""
-          items={prompts}
+          items={[]}
         />
         <Sender
           allowSpeech={false}
