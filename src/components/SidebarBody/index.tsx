@@ -325,15 +325,14 @@ function SidebarBody({
     };
   }, [ctxMenu]);
 
-  // ── Menu items: "生成文档" only for MySQL database nodes ──────
+  // ── Menu items ──────────────────────────────────────────────
   const menuItems = useMemo<MenuProps["items"]>(() => {
     const items: MenuProps["items"] = [
       { key: "copy", icon: <CopyOutlined />, label: t("sidebar.ctx.copyName") },
-      { key: "query", icon: <CodeOutlined />, label: t("sidebar.ctx.newQuery") },
       { key: "refresh", icon: <ReloadOutlined />, label: t("sidebar.ctx.refresh") },
     ];
 
-    // Add "新建查询" and "生成文档" if right-clicked node is a MySQL database
+    // "新建查询" and "生成文档" only for MySQL database nodes
     if (ctxMenu && isMysqlDbNode(String(ctxMenu.node.key))) {
       items.push({
         key: "newQuery",
@@ -468,17 +467,36 @@ function SidebarBody({
         messageApi.success(t("sidebar.msg.refreshed", { name: title }));
         setCtxMenu(null);
         break;
-      case "copy":
-        navigator.clipboard
-          ?.writeText(title)
-          .then(() => messageApi.success(t("sidebar.msg.copied", { name: title })))
-          .catch(() => messageApi.error(t("sidebar.msg.copyFailed")));
+      case "copy": {
+        // Extract clean name: for column nodes strip type info (e.g. "id  int?⚷" → "id")
+        const copyText =
+          title.includes("  ")
+            ? title.split("  ")[0]
+            : title;
+        if (navigator.clipboard?.writeText) {
+          navigator.clipboard
+            .writeText(copyText)
+            .then(() => messageApi.success(t("sidebar.msg.copied", { name: copyText })))
+            .catch(() => messageApi.error(t("sidebar.msg.copyFailed")));
+        } else {
+          // Fallback for environments without clipboard API
+          try {
+            const ta = document.createElement("textarea");
+            ta.value = copyText;
+            ta.style.position = "fixed";
+            ta.style.opacity = "0";
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand("copy");
+            document.body.removeChild(ta);
+            messageApi.success(t("sidebar.msg.copied", { name: copyText }));
+          } catch {
+            messageApi.error(t("sidebar.msg.copyFailed"));
+          }
+        }
         setCtxMenu(null);
         break;
-      case "query":
-        messageApi.info(t("sidebar.msg.queryTodo", { name: title }));
-        setCtxMenu(null);
-        break;
+      }
       case "newQuery": {
         if (!selectedConfig) break;
         const dbName = String(node.key).replace("mysql:", "");
