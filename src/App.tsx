@@ -7,12 +7,13 @@ import StatusBar from "./components/StatusBar";
 import ContentBody from "./components/ContentBody";
 import SystemSettings from "./components/SystemSettings";
 import { openDocsFolder } from "./db-api";
+import type { DbContext } from "./components/AIChat";
 import { useTranslation } from "./i18n";
 
 export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [selectedDsName, setSelectedDsName] = useState<string | null>(null);
-  const [dbChatToOpen, setDbChatToOpen] = useState<string | null>(null);
+  const [dbChatToOpen, setDbChatToOpen] = useState<DbContext | null>(null);
   const [messageApi, contextHolder] = message.useMessage();
   const t = useTranslation();
 
@@ -48,7 +49,7 @@ export default function App() {
         <SidebarTitle />
         <SidebarBody
           onSelectDs={setSelectedDsName}
-          onNewQuery={(dbName) => setDbChatToOpen(dbName)}
+          onNewQuery={(ctx) => setDbChatToOpen(ctx)}
         />
       </aside>
 
@@ -62,7 +63,6 @@ export default function App() {
           }
         />
         <ContentBody
-          selectedDsName={selectedDsName}
           dbChatToOpen={dbChatToOpen}
           onDbChatOpened={() => setDbChatToOpen(null)}
         />

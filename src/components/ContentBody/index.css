@@ -38,3 +38,10 @@
   align-items: center;
   gap: 6px;
 }
+
+.content-body-empty {
+  flex: 1 1 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

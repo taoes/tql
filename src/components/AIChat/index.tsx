@@ -1,5 +1,5 @@
 import { Bubble, Sender, PromptsProps, Prompts } from "@ant-design/x";
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
 import {
   ClearOutlined,
   BulbOutlined,
@@ -49,13 +49,19 @@ const prompts: PromptsProps["items"] = [
   },
 ];
 
-interface AIChatProps {
-  onRunSql?: (sql: string) => void;
-  selectedDsName?: string | null;
-  databaseName?: string;
+export interface DbContext {
+  datasourceName: string;
+  databaseName: string;
+  dbType: string;
 }
 
-export default function AIChat({ onRunSql, selectedDsName, databaseName }: AIChatProps) {
+interface AIChatProps {
+  onRunSql?: (sql: string) => void;
+  /** If set, the AI is focused on a specific database */
+  databaseContext?: DbContext | null;
+}
+
+export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
   const t = useTranslation();
   const modelConfig = useModelConfig();
   const [messageApi, msgCtx] = message.useMessage();
@@ -69,9 +75,15 @@ export default function AIChat({ onRunSql, selectedDsName, databaseName }: AICha
 
   /**
    * System prompt — injected into every API call but never displayed in the UI.
-   * Defines the assistant's identity, scope, and safety constraints.
+   * Includes database context when a specific database is focused.
    */
-  const systemPrompt = t("aiChat.systemPrompt");
+  const systemPrompt = useMemo(() => {
+    let prompt = t("aiChat.systemPrompt");
+    if (databaseContext) {
+      prompt += `\n\n当前连接的数据库信息：\n- 数据源: ${databaseContext.datasourceName}\n- 数据库: ${databaseContext.databaseName}\n- 类型: ${databaseContext.dbType === "mysql" ? "MySQL" : "Redis"}\n\n请优先基于该数据库的上下文回答用户的问题。如果用户询问表结构或字段信息，请根据已知信息推断或建议用户查看具体的表结构。`;
+    }
+    return prompt;
+  }, [t, databaseContext]);
 
   /** Build chat messages array for the API (system prompt + history + new message) */
   const buildApiMessages = useCallback(
@@ -100,8 +112,8 @@ export default function AIChat({ onRunSql, selectedDsName, databaseName }: AICha
     if (!text.trim() || streaming) return;
 
     // Require a data source to be selected before chatting
-    if (!selectedDsName) {
-      messageApi.warning("请先在左侧选择一个数据源");
+    if (!databaseContext) {
+      messageApi.warning("请先在左侧选择一个数据源和数据库，然后右键选择新建查询");
       return;
     }
 
@@ -161,7 +173,7 @@ export default function AIChat({ onRunSql, selectedDsName, databaseName }: AICha
     const controller = ai.streamChat(apiMessages, callbacks);
     abortRef.current = controller;
   },
-    [streaming, modelConfig, buildApiMessages, selectedDsName, messageApi],
+    [streaming, modelConfig, buildApiMessages, databaseContext, messageApi],
   );
 
   /** Stop the current stream */
@@ -199,21 +211,28 @@ export default function AIChat({ onRunSql, selectedDsName, databaseName }: AICha
   return (
     <div className="ai-chat-container">
       {msgCtx}
-      {!selectedDsName && (
+      {!databaseContext && (
         <Alert
           type="warning"
           icon={<WarningOutlined />}
           showIcon
-          message="未选择数据源"
-          description="请先在左侧选择一个数据源和数据库，以获得更精准的 SQL 生成和问题回答。"
+          message="未关联数据库"
+          description="请先在左侧选择一个数据源和数据库，右键选择「新建查询」开始对话。"
           style={{ marginBottom: 8 }}
           closable
         />
       )}
-      {databaseName && (
+      {databaseContext && (
         <Alert
           type="info"
-          message={`当前数据库: ${databaseName}`}
+          message={
+            <span>
+              当前数据库: <strong>{databaseContext.databaseName}</strong>
+              <span style={{ marginLeft: 12, color: "#888" }}>
+                {databaseContext.datasourceName} · {databaseContext.dbType === "mysql" ? "MySQL" : "Redis"}
+              </span>
+            </span>
+          }
           style={{ marginBottom: 8 }}
           closable
         />

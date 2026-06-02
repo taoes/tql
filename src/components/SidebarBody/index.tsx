@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { Button, Menu, Select, Tree, Typography, message, Spin, Modal, Alert, Tag } from "antd";
+import { Button, Menu, Select, Tree, Typography, message, Spin, Modal, Alert, Tag, Space, Tooltip } from "antd";
 import { createPortal } from "react-dom";
 import type { DataNode } from "antd/es/tree";
 import {
@@ -8,6 +8,7 @@ import {
   CodeOutlined,
   FileTextOutlined,
   FieldNumberOutlined,
+  CheckOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
   LoadingOutlined,
@@ -127,7 +128,7 @@ function SidebarBody({
   onNewQuery,
 }: {
   onSelectDs?: (name: string | null) => void;
-  onNewQuery?: (dbName: string) => void;
+  onNewQuery?: (ctx: { datasourceName: string; databaseName: string; dbType: string }) => void;
 }) {
   const t = useTranslation();
   const { settings } = useSettings();
@@ -139,7 +140,16 @@ function SidebarBody({
   const [loadingTree, setLoadingTree] = useState(false);
   const [ctxMenu, setCtxMenu] = useState<ContextState | null>(null);
   const [docGen, setDocGen] = useState<DocGenState | null>(null);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
   const [messageApi, contextHolder] = message.useMessage();
+
+  const copyToClipboard = (text: string, field: string) => {
+    navigator.clipboard?.writeText(text).then(() => {
+      setCopiedField(field);
+      messageApi.success("已复制");
+      setTimeout(() => setCopiedField(null), 2000);
+    });
+  };
   const treeWrapRef = useRef<HTMLDivElement>(null);
 
   const selectedConfig = useMemo(
@@ -467,8 +477,13 @@ function SidebarBody({
         setCtxMenu(null);
         break;
       case "newQuery": {
+        if (!selectedConfig) break;
         const dbName = String(node.key).replace("mysql:", "");
-        onNewQuery?.(dbName);
+        onNewQuery?.({
+          datasourceName: selectedConfig.name,
+          databaseName: dbName,
+          dbType: selectedConfig.dbType,
+        });
         setCtxMenu(null);
         break;
       }
@@ -494,23 +509,51 @@ function SidebarBody({
         />
       </div>
 
-      {/* Selected data source info */}
+      {/* Selected data source info — horizontal layout */}
       {selectedConfig && (
         <div
           style={{
-            padding: "8px 12px",
+            padding: "6px 8px",
             background: "#fafafa",
             borderRadius: 6,
             fontSize: 12,
-            lineHeight: 1.8,
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "4px 16px",
           }}
         >
-          <Tag color={selectedConfig.dbType === "mysql" ? "blue" : "orange"}>
-            {selectedConfig.dbType === "mysql" ? "MySQL" : "Redis"}
-          </Tag>
-          <span style={{ color: "#888" }}>
-            {selectedConfig.host}:{selectedConfig.port}
-            {selectedConfig.user && ` · ${selectedConfig.user}`}
+          <span style={{ color: "#666" }}>
+            名称: <strong>{selectedConfig.name}</strong>
+            <Tooltip title="复制">
+              <Button
+                type="text"
+                size="small"
+                icon={copiedField === "name" ? <CheckOutlined style={{ color: "#52c41a" }} /> : <CopyOutlined />}
+                onClick={() => copyToClipboard(selectedConfig.name, "name")}
+              />
+            </Tooltip>
+          </span>
+          <span style={{ color: "#666" }}>
+            IP: <strong>{selectedConfig.host}</strong>
+            <Tooltip title="复制">
+              <Button
+                type="text"
+                size="small"
+                icon={copiedField === "ip" ? <CheckOutlined style={{ color: "#52c41a" }} /> : <CopyOutlined />}
+                onClick={() => copyToClipboard(selectedConfig.host, "ip")}
+              />
+            </Tooltip>
+          </span>
+          <span style={{ color: "#666" }}>
+            地址: <strong>{selectedConfig.host}:{selectedConfig.port}</strong>
+            <Tooltip title="复制">
+              <Button
+                type="text"
+                size="small"
+                icon={copiedField === "addr" ? <CheckOutlined style={{ color: "#52c41a" }} /> : <CopyOutlined />}
+                onClick={() => copyToClipboard(`${selectedConfig.host}:${selectedConfig.port}`, "addr")}
+              />
+            </Tooltip>
           </span>
         </div>
       )}
