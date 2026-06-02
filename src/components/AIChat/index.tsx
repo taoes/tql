@@ -5,12 +5,13 @@ import {
   BulbOutlined,
   InfoCircleOutlined,
   StopOutlined,
+  WarningOutlined,
 } from "@ant-design/icons";
 import { useTranslation } from "../../i18n";
 import { createAIService } from "../../services";
 import { useModelConfig } from "../../settings/SettingsContext";
 import type { ChatMessage, StreamCallbacks } from "../../services";
-import { Button, Space } from "antd";
+import { Button, Space, Alert, message } from "antd";
 import ButtonGroup from "antd/lib/button/ButtonGroup";
 import "./index.css";
 
@@ -48,9 +49,16 @@ const prompts: PromptsProps["items"] = [
   },
 ];
 
-export default function AIChat({ onRunSql }: { onRunSql: (sql: string) => void }) {
+interface AIChatProps {
+  onRunSql?: (sql: string) => void;
+  selectedDsName?: string | null;
+  databaseName?: string;
+}
+
+export default function AIChat({ onRunSql, selectedDsName, databaseName }: AIChatProps) {
   const t = useTranslation();
   const modelConfig = useModelConfig();
+  const [messageApi, msgCtx] = message.useMessage();
 
   const [messages, setMessages] = useState<Message[]>(() => [
     { key: "1", role: "assistant", content: t("aiChat.greeting") },
@@ -90,6 +98,12 @@ export default function AIChat({ onRunSql }: { onRunSql: (sql: string) => void }
 
   const handleSubmit = useCallback((text: string) => {
     if (!text.trim() || streaming) return;
+
+    // Require a data source to be selected before chatting
+    if (!selectedDsName) {
+      messageApi.warning("请先在左侧选择一个数据源");
+      return;
+    }
 
     const userKey = Date.now().toString();
     const aiKey = (Date.now() + 1).toString();
@@ -147,7 +161,7 @@ export default function AIChat({ onRunSql }: { onRunSql: (sql: string) => void }
     const controller = ai.streamChat(apiMessages, callbacks);
     abortRef.current = controller;
   },
-    [streaming, modelConfig, buildApiMessages],
+    [streaming, modelConfig, buildApiMessages, selectedDsName, messageApi],
   );
 
   /** Stop the current stream */
@@ -184,6 +198,26 @@ export default function AIChat({ onRunSql }: { onRunSql: (sql: string) => void }
 
   return (
     <div className="ai-chat-container">
+      {msgCtx}
+      {!selectedDsName && (
+        <Alert
+          type="warning"
+          icon={<WarningOutlined />}
+          showIcon
+          message="未选择数据源"
+          description="请先在左侧选择一个数据源和数据库，以获得更精准的 SQL 生成和问题回答。"
+          style={{ marginBottom: 8 }}
+          closable
+        />
+      )}
+      {databaseName && (
+        <Alert
+          type="info"
+          message={`当前数据库: ${databaseName}`}
+          style={{ marginBottom: 8 }}
+          closable
+        />
+      )}
       <div className="ai-chat-messages">
         <Bubble.List items={messages} role={roleConfig} />
       </div>

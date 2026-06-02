@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Tabs } from "antd";
 import { MessageOutlined, TableOutlined } from "@ant-design/icons";
 import AIChat from "../AIChat";
@@ -14,11 +14,36 @@ interface SqlTab {
   sql: string;
 }
 
-function ContentBody() {
+interface DbChatTab {
+  key: string;
+  dbName: string;
+}
+
+interface ContentBodyProps {
+  dbChatToOpen?: string | null;
+  onDbChatOpened?: () => void;
+  selectedDsName?: string | null;
+}
+
+function ContentBody({ dbChatToOpen, onDbChatOpened, selectedDsName }: ContentBodyProps) {
   const t = useTranslation();
   const [sqlTabs, setSqlTabs] = useState<SqlTab[]>([]);
+  const [dbChats, setDbChats] = useState<DbChatTab[]>([]);
   const [activeKey, setActiveKey] = useState<string>(AI_TAB_KEY);
   const seqRef = useRef(0);
+
+  // ── Open a new database-specific AI chat tab ─────────────────
+  useEffect(() => {
+    if (!dbChatToOpen) return;
+
+    const key = `__ai_db__${dbChatToOpen}`;
+    setDbChats((prev) => {
+      if (prev.find((d) => d.key === key)) return prev;
+      return [...prev, { key, dbName: dbChatToOpen }];
+    });
+    setActiveKey(key);
+    onDbChatOpened?.();
+  }, [dbChatToOpen, onDbChatOpened]);
 
   const handleRunSql = useCallback((sql: string) => {
     seqRef.current += 1;
@@ -46,8 +71,20 @@ function ContentBody() {
         });
         return next;
       });
+      setDbChats((prev) => {
+        const idx = prev.findIndex((it) => it.key === targetKey);
+        if (idx === -1) return prev;
+        const next = prev.filter((it) => it.key !== targetKey);
+        setActiveKey((curr) => {
+          if (curr !== targetKey) return curr;
+          if (next.length === 0) return AI_TAB_KEY;
+          const fallback = next[Math.min(idx, next.length - 1)];
+          return fallback.key;
+        });
+        return next;
+      });
     },
-    []
+    [],
   );
 
   const handleEdit = useCallback(
@@ -56,7 +93,7 @@ function ContentBody() {
         closeTab(targetKey);
       }
     },
-    [closeTab]
+    [closeTab],
   );
 
   const items = useMemo(
@@ -69,8 +106,24 @@ function ContentBody() {
           </span>
         ),
         closable: false,
-        children: <AIChat onRunSql={handleRunSql} />,
+        children: <AIChat onRunSql={handleRunSql} selectedDsName={selectedDsName} />,
       },
+      ...dbChats.map((d) => ({
+        key: d.key,
+        label: (
+          <span className="workspace-tab-label">
+            <MessageOutlined /> {d.dbName}
+          </span>
+        ),
+        closable: true,
+        children: (
+          <AIChat
+            onRunSql={handleRunSql}
+            selectedDsName={selectedDsName}
+            databaseName={d.dbName}
+          />
+        ),
+      })),
       ...sqlTabs.map((it) => ({
         key: it.key,
         label: (
@@ -82,7 +135,7 @@ function ContentBody() {
         children: <SqlResultTab sql={it.sql} />,
       })),
     ],
-    [sqlTabs, t, handleRunSql]
+    [sqlTabs, dbChats, t, handleRunSql, selectedDsName],
   );
 
   return (

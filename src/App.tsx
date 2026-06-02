@@ -12,6 +12,7 @@ import { useTranslation } from "./i18n";
 export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [selectedDsName, setSelectedDsName] = useState<string | null>(null);
+  const [dbChatToOpen, setDbChatToOpen] = useState<string | null>(null);
   const [messageApi, contextHolder] = message.useMessage();
   const t = useTranslation();
 
@@ -45,7 +46,10 @@ export default function App() {
       {contextHolder}
       <aside className="sidebar">
         <SidebarTitle />
-        <SidebarBody onSelectDs={setSelectedDsName} />
+        <SidebarBody
+          onSelectDs={setSelectedDsName}
+          onNewQuery={(dbName) => setDbChatToOpen(dbName)}
+        />
       </aside>
 
       <section className="content">
@@ -57,7 +61,11 @@ export default function App() {
             )
           }
         />
-        <ContentBody />
+        <ContentBody
+          selectedDsName={selectedDsName}
+          dbChatToOpen={dbChatToOpen}
+          onDbChatOpened={() => setDbChatToOpen(null)}
+        />
       </section>
 
       <Modal

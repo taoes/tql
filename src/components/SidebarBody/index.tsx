@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { Button, Menu, Select, Tree, Typography, message, Spin, Modal, Alert } from "antd";
+import { Button, Menu, Select, Tree, Typography, message, Spin, Modal, Alert, Tag } from "antd";
 import { createPortal } from "react-dom";
 import type { DataNode } from "antd/es/tree";
 import {
@@ -122,7 +122,13 @@ function buildDocPrompt(
 
 // ── Component ──────────────────────────────────────────────────
 
-function SidebarBody({ onSelectDs }: { onSelectDs?: (name: string | null) => void }) {
+function SidebarBody({
+  onSelectDs,
+  onNewQuery,
+}: {
+  onSelectDs?: (name: string | null) => void;
+  onNewQuery?: (dbName: string) => void;
+}) {
   const t = useTranslation();
   const { settings } = useSettings();
   const modelConfig = useModelConfig();
@@ -268,7 +274,7 @@ function SidebarBody({ onSelectDs }: { onSelectDs?: (name: string | null) => voi
         label: "MySQL",
         options: mysqlConns.map((c) => ({
           value: c.id,
-          label: `${c.name} (${c.host}:${c.port})`,
+          label: c.name,
         })),
       });
     }
@@ -279,7 +285,7 @@ function SidebarBody({ onSelectDs }: { onSelectDs?: (name: string | null) => voi
         label: "Redis",
         options: redisConns.map((c) => ({
           value: c.id,
-          label: `${c.name} (${c.host}:${c.port})`,
+          label: c.name,
         })),
       });
     }
@@ -314,8 +320,13 @@ function SidebarBody({ onSelectDs }: { onSelectDs?: (name: string | null) => voi
       { key: "refresh", icon: <ReloadOutlined />, label: t("sidebar.ctx.refresh") },
     ];
 
-    // Add "生成文档" if right-clicked node is a MySQL database
+    // Add "新建查询" and "生成文档" if right-clicked node is a MySQL database
     if (ctxMenu && isMysqlDbNode(String(ctxMenu.node.key))) {
+      items.push({
+        key: "newQuery",
+        icon: <CodeOutlined />,
+        label: t("sidebar.ctx.newQuery"),
+      });
       items.push({
         key: "generateDoc",
         icon: <FileTextOutlined />,
@@ -455,6 +466,12 @@ function SidebarBody({ onSelectDs }: { onSelectDs?: (name: string | null) => voi
         messageApi.info(t("sidebar.msg.queryTodo", { name: title }));
         setCtxMenu(null);
         break;
+      case "newQuery": {
+        const dbName = String(node.key).replace("mysql:", "");
+        onNewQuery?.(dbName);
+        setCtxMenu(null);
+        break;
+      }
       case "generateDoc":
         handleGenerateDoc();
         break;
@@ -476,6 +493,27 @@ function SidebarBody({ onSelectDs }: { onSelectDs?: (name: string | null) => voi
           notFoundContent={t("settings.datasource.noConnections")}
         />
       </div>
+
+      {/* Selected data source info */}
+      {selectedConfig && (
+        <div
+          style={{
+            padding: "8px 12px",
+            background: "#fafafa",
+            borderRadius: 6,
+            fontSize: 12,
+            lineHeight: 1.8,
+          }}
+        >
+          <Tag color={selectedConfig.dbType === "mysql" ? "blue" : "orange"}>
+            {selectedConfig.dbType === "mysql" ? "MySQL" : "Redis"}
+          </Tag>
+          <span style={{ color: "#888" }}>
+            {selectedConfig.host}:{selectedConfig.port}
+            {selectedConfig.user && ` · ${selectedConfig.user}`}
+          </span>
+        </div>
+      )}
 
       <div className="sidebar-body-section sidebar-tree" ref={treeWrapRef}>
         <Typography.Text type="secondary">{t("sidebar.database")}</Typography.Text>
