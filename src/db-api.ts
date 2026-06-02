@@ -57,6 +57,17 @@ export async function listMysqlColumns(
 }
 
 /**
+ * Read a previously generated document from ~/.config/tql/docs/<datasource>/<database>.md.
+ * Returns the file content, or throws if not found.
+ */
+export async function readDocument(
+  datasourceName: string,
+  database: string,
+): Promise<string> {
+  return invoke<string>("read_document", { datasourceName, database });
+}
+
+/**
  * Save a generated document to ~/.config/tql/docs/<datasource>/<database>.md.
  * Returns the saved file path on success.
  */

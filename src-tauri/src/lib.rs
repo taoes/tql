@@ -45,6 +45,24 @@ fn save_settings(settings: serde_json::Value) -> Result<(), String> {
 
 // ── Document generation ─────────────────────────────────────────
 
+/// Read a previously saved documentation file.
+/// Returns the file content, or an error if not found.
+#[tauri::command]
+fn read_document(
+    datasource_name: String,
+    database: String,
+) -> Result<String, String> {
+    let home = std::env::var("HOME").map_err(|e| format!("无法读取 HOME: {e}"))?;
+    let path = PathBuf::from(home)
+        .join(".config")
+        .join("tql")
+        .join("docs")
+        .join(&datasource_name)
+        .join(format!("{}.md", database));
+    std::fs::read_to_string(&path)
+        .map_err(|e| format!("读取文档失败 {}: {e}", path.display()))
+}
+
 #[tauri::command]
 fn save_document(
     datasource_name: String,
@@ -191,6 +209,7 @@ pub fn run() {
             greet,
             load_settings,
             save_settings,
+            read_document,
             save_document,
             rename_document_folder,
             open_docs_folder,
