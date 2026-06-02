@@ -84,6 +84,42 @@ fn rename_document_folder(
     Ok(())
 }
 
+/// Open the docs folder in the system file manager.
+/// If `datasource_name` is provided, opens that data source's subfolder.
+#[tauri::command]
+fn open_docs_folder(datasource_name: Option<String>) -> Result<(), String> {
+    let home = std::env::var("HOME").map_err(|e| format!("无法读取 HOME: {e}"))?;
+    let mut path = PathBuf::from(home).join(".config").join("tql").join("docs");
+    if let Some(name) = &datasource_name {
+        path = path.join(name);
+    }
+    // Create the directory if it doesn't exist yet
+    std::fs::create_dir_all(&path).ok();
+
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| format!("无法打开文件夹: {e}"))?;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| format!("无法打开文件夹: {e}"))?;
+    }
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| format!("无法打开文件夹: {e}"))?;
+    }
+    Ok(())
+}
+
 // ── Async database commands ─────────────────────────────────────
 
 #[tauri::command]
@@ -157,6 +193,7 @@ pub fn run() {
             save_settings,
             save_document,
             rename_document_folder,
+            open_docs_folder,
             test_connection,
             list_mysql_databases,
             list_mysql_tables,

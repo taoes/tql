@@ -6,10 +6,12 @@ import SidebarBody from "./components/SidebarBody";
 import StatusBar from "./components/StatusBar";
 import ContentBody from "./components/ContentBody";
 import SystemSettings from "./components/SystemSettings";
+import { openDocsFolder } from "./db-api";
 import { useTranslation } from "./i18n";
 
 export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [selectedDsName, setSelectedDsName] = useState<string | null>(null);
   const [messageApi, contextHolder] = message.useMessage();
   const t = useTranslation();
 
@@ -43,11 +45,18 @@ export default function App() {
       {contextHolder}
       <aside className="sidebar">
         <SidebarTitle />
-        <SidebarBody />
+        <SidebarBody onSelectDs={setSelectedDsName} />
       </aside>
 
       <section className="content">
-        <StatusBar onSettingsClick={() => setSettingsOpen(true)} />
+        <StatusBar
+          onSettingsClick={() => setSettingsOpen(true)}
+          onOpenDocs={() =>
+            openDocsFolder(selectedDsName ?? undefined).catch((e) =>
+              messageApi.error(String(e)),
+            )
+          }
+        />
         <ContentBody />
       </section>
 

@@ -122,7 +122,7 @@ function buildDocPrompt(
 
 // ── Component ──────────────────────────────────────────────────
 
-function SidebarBody() {
+function SidebarBody({ onSelectDs }: { onSelectDs?: (name: string | null) => void }) {
   const t = useTranslation();
   const { settings } = useSettings();
   const modelConfig = useModelConfig();
@@ -140,6 +140,11 @@ function SidebarBody() {
     () => connections.find((c) => c.id === selectedId) ?? null,
     [connections, selectedId],
   );
+
+  // Notify parent when selection changes (for docs folder button)
+  useEffect(() => {
+    onSelectDs?.(selectedConfig?.name ?? null);
+  }, [selectedConfig, onSelectDs]);
 
   // ── Load root tree nodes when data source changes ────────────
   const loadRoot = useCallback(async () => {

@@ -86,6 +86,16 @@ export async function renameDocumentFolder(
   });
 }
 
+/**
+ * Open the docs folder in the system file manager.
+ * Opens the data-source-specific subfolder if `datasourceName` is provided.
+ */
+export async function openDocsFolder(datasourceName?: string): Promise<void> {
+  return invoke("open_docs_folder", {
+    datasourceName: datasourceName ?? null,
+  });
+}
+
 /** List all Redis databases with key counts. */
 export async function listRedisDatabases(
   config: DataSourceConfig,
