@@ -71,16 +71,14 @@ export default function SqlResultTab({
     result: null,
   });
 
-  // Sync external sql prop when not actively editing
+  // Sync external sql prop when it changes (but not when exiting edit mode)
   useEffect(() => {
-    if (!editing) {
-      setEditSql(sql);
-    }
-  }, [sql, editing]);
+    setEditSql(sql);
+  }, [sql]);
 
   // ---- query execution ----
   const runQuery = useCallback(
-    async (sqlText: string) => {
+    async (sqlText: string, signal?: AbortSignal) => {
       setQueryState({ loading: true, error: null, result: null });
       try {
         const timeout = settings?.basic.queryTimeout ?? 30;
@@ -92,22 +90,28 @@ export default function SqlResultTab({
           maxRows,
           timeout,
         );
-        setQueryState({ loading: false, error: null, result });
+        if (!signal?.aborted) {
+          setQueryState({ loading: false, error: null, result });
+        }
       } catch (e) {
-        setQueryState({
-          loading: false,
-          error: e instanceof Error ? e.message : String(e),
-          result: null,
-        });
+        if (!signal?.aborted) {
+          setQueryState({
+            loading: false,
+            error: e instanceof Error ? e.message : String(e),
+            result: null,
+          });
+        }
       }
     },
     [dataSourceConfig, databaseName, settings],
   );
 
-  // Auto-execute on mount / when sql changes
+  // Auto-execute on mount / when sql changes (with cleanup for StrictMode)
   useEffect(() => {
-    runQuery(sql);
-  }, [sql]); // eslint-disable-line react-hooks/exhaustive-deps
+    const controller = new AbortController();
+    runQuery(sql, controller.signal);
+    return () => controller.abort();
+  }, [sql, runQuery]);
 
   // Sync visible columns when result columns change
   useEffect(() => {
@@ -331,7 +335,7 @@ export default function SqlResultTab({
               value={editSql}
               onChange={(e) => setEditSql(e.target.value)}
               className="sql-result-textarea"
-              autoSize={{ minRows: 2, maxRows: 12 }}
+              autoSize={{ minRows: 3, maxRows: 12 }}
             />
           ) : (
             <pre className="sql-result-code">{editSql}</pre>
