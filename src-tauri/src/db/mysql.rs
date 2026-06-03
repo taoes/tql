@@ -10,7 +10,7 @@ fn build_url(config: &DataSourceConfig) -> String {
     let pw = config.password.as_deref().unwrap_or("");
     let db = config.database.as_deref().unwrap_or("");
     let ssl = if config.enable_ssl {
-        "?ssl-mode=REQUIRED"
+        "?require_ssl=true"
     } else {
         ""
     };
@@ -108,7 +108,7 @@ fn build_url_with_db(config: &DataSourceConfig, database: &str) -> String {
     let db = database.replace('`', "``");
     if config.enable_ssl {
         format!(
-            "mysql://{}:{}@{}:{}/{}?ssl-mode=REQUIRED",
+            "mysql://{}:{}@{}:{}/{}?require_ssl=true",
             user, pw, config.host, config.port, db
         )
     } else {
