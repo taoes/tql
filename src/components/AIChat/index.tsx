@@ -1,4 +1,5 @@
-import { Bubble, Sender, PromptsProps, Prompts } from "@ant-design/x";
+import { Bubble, Sender, PromptsProps, Prompts, Actions } from "@ant-design/x";
+import type { ItemType } from "@ant-design/x/es/actions/interface";
 import { XMarkdown } from "@ant-design/x-markdown";
 import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import {
@@ -9,6 +10,9 @@ import {
   WarningOutlined,
   RobotOutlined,
   UserOutlined,
+  CopyOutlined,
+  PlayCircleOutlined,
+  SyncOutlined,
 } from "@ant-design/icons";
 import { useTranslation } from "../../i18n";
 import { createAIService } from "../../services";
@@ -30,6 +34,30 @@ interface Message {
   key: string;
   role: "assistant" | "user";
   content: string;
+}
+
+/** Extract SQL statements from AI response content */
+function extractSqlStatements(content: string): string[] {
+  // Extract SQL from markdown code blocks (```sql or ```)
+  const codeBlockRegex = /```(?:sql)?\s*\n?([\s\S]*?)```/g;
+  const matches: string[] = [];
+  let match;
+  while ((match = codeBlockRegex.exec(content)) !== null) {
+    const sql = match[1].trim();
+    if (sql) matches.push(sql);
+  }
+
+  // If no code blocks, check if the whole content looks like SQL
+  if (matches.length === 0) {
+    const trimmed = content.trim();
+    const sqlKeywords =
+      /^(SELECT|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|TRUNCATE|REPLACE|WITH|EXPLAIN|SHOW|DESCRIBE|USE|GRANT|REVOKE|SET|BEGIN|COMMIT|ROLLBACK|CALL)\b/i;
+    if (sqlKeywords.test(trimmed)) {
+      matches.push(trimmed);
+    }
+  }
+
+  return matches;
 }
 
 const prompts: PromptsProps["items"] = [
@@ -71,6 +99,95 @@ export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
   const [streamingKey, setStreamingKey] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  /** Copy message content to clipboard */
+  const handleCopy = useCallback(
+    (content: string) => {
+      navigator.clipboard.writeText(content).then(
+        () => messageApi.success(t("aiChat.copySuccess")),
+        () => messageApi.error(t("aiChat.copyFailed")),
+      );
+    },
+    [messageApi, t],
+  );
+
+  /** Extract and execute SQL from AI response */
+  const handleExecute = useCallback(
+    (content: string) => {
+      const sqls = extractSqlStatements(content);
+      if (sqls.length > 0 && onRunSql) {
+        onRunSql(sqls[0]);
+      }
+    },
+    [onRunSql],
+  );
+
+  /** Regenerate AI response for a user message */
+  const handleRegenerate = useCallback(
+    (userKey: string, userContent: string) => {
+      if (streaming) return;
+
+      const aiKey = (Date.now() + 1).toString();
+
+      // Keep messages up to and including this user message
+      const idx = messages.findIndex((m) => m.key === userKey);
+      if (idx === -1) return;
+      const keptConversation = messages.slice(0, idx + 1);
+
+      // Build API messages from the kept conversation
+      const apiMessages: ChatMessage[] = [
+        { role: "system", content: systemPrompt },
+      ];
+      for (const msg of keptConversation.filter((m) => m.key !== "1")) {
+        apiMessages.push({ role: msg.role, content: msg.content });
+      }
+
+      // Add empty AI placeholder
+      setMessages([
+        ...keptConversation,
+        { key: aiKey, role: "assistant", content: "" },
+      ]);
+      setStreamingKey(aiKey);
+      setStreaming(true);
+
+      const ai = createAIService(modelConfig);
+      const callbacks: StreamCallbacks = {
+        onChunk(content) {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.key === aiKey ? { ...m, content: m.content + content } : m,
+            ),
+          );
+        },
+        onComplete(fullContent) {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.key === aiKey ? { ...m, content: fullContent } : m,
+            ),
+          );
+          setStreaming(false);
+          setStreamingKey(null);
+          abortRef.current = null;
+        },
+        onError(error) {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.key === aiKey
+                ? { ...m, content: `❌ ${error.message}` }
+                : m,
+            ),
+          );
+          setStreaming(false);
+          setStreamingKey(null);
+          abortRef.current = null;
+        },
+      };
+
+      const controller = ai.streamChat(apiMessages, callbacks);
+      abortRef.current = controller;
+    },
+    [streaming, messages, modelConfig, systemPrompt],
+  );
 
   // Document content for the current database context
   const [docContent, setDocContent] = useState<string | null>(null);
@@ -294,6 +411,64 @@ export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
         {messages.map((msg) => {
           const isAssistant = msg.role === "assistant";
           const isStreaming = isAssistant && streaming && msg.key === streamingKey;
+          const isGreeting = msg.key === "1";
+
+          // Build action items per message
+          const actionItems: ItemType[] = [];
+
+          if (isAssistant) {
+            // AI messages: copy + execute (if SQL found)
+            actionItems.push({
+              key: "copy",
+              label: t("aiChat.copy"),
+              icon: <CopyOutlined />,
+              onItemClick: () => handleCopy(msg.content),
+            });
+
+            const sqls = extractSqlStatements(msg.content);
+            if (onRunSql && sqls.length > 0) {
+              if (sqls.length === 1) {
+                actionItems.push({
+                  key: "execute",
+                  label: t("aiChat.play"),
+                  icon: <PlayCircleOutlined />,
+                  onItemClick: () => onRunSql(sqls[0]),
+                });
+              } else {
+                actionItems.push({
+                  key: "execute",
+                  label: t("aiChat.play"),
+                  icon: <PlayCircleOutlined />,
+                  subItems: sqls.map((sql, i) => ({
+                    key: `execute-${i}`,
+                    label:
+                      sql.length > 60
+                        ? sql.substring(0, 60) + "..."
+                        : sql,
+                    onItemClick: () => onRunSql(sql),
+                  })),
+                });
+              }
+            }
+          } else {
+            // User messages: copy + refresh (except greeting)
+            actionItems.push({
+              key: "copy",
+              label: t("aiChat.copy"),
+              icon: <CopyOutlined />,
+              onItemClick: () => handleCopy(msg.content),
+            });
+
+            if (!isGreeting) {
+              actionItems.push({
+                key: "refresh",
+                label: t("aiChat.regenerate"),
+                icon: <SyncOutlined />,
+                onItemClick: () =>
+                  handleRegenerate(msg.key, msg.content),
+              });
+            }
+          }
 
           return (
             <Bubble
@@ -335,6 +510,12 @@ export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
                     )
                   : undefined
               }
+              footer={
+                actionItems.length > 0 ? (
+                  <Actions items={actionItems} variant="borderless" />
+                ) : undefined
+              }
+              footerPlacement="outer-start"
             />
           );
         })}
