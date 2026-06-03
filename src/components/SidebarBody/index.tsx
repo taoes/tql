@@ -98,6 +98,22 @@ function buildDocPrompt(
   lines.push(`- 数据库: ${dbName}`);
   lines.push("");
 
+  if (tables.length === 0) {
+    lines.push("## ⚠️ 该数据库没有任何数据表");
+    lines.push("");
+    lines.push("该数据库当前为空，不包含任何表。");
+    lines.push("");
+    lines.push("## 要求");
+    lines.push("请生成一个简短的 Markdown 文档，说明以下内容：");
+    lines.push("1. **数据库状态** — 明确说明该数据库当前没有任何数据表，是一个空数据库。");
+    lines.push("2. **建议** — 提示用户可以创建表来存储数据，但**不要**自行设计或创建任何表结构。");
+    lines.push("");
+    lines.push("**重要：不要编造任何表结构、字段或数据。数据库是空的，就如实说明。**");
+    lines.push("");
+    lines.push("请用中文编写，输出完整的 Markdown。");
+    return lines.join("\n");
+  }
+
   for (const table of tables) {
     lines.push(`### 表: ${table.name}`);
     lines.push("| 字段 | 类型 | 可空 | 键 | 默认值 |");
