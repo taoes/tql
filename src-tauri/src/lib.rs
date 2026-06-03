@@ -286,12 +286,22 @@ async fn execute_query(
     .map_err(|_| format!("Query timed out after {}s", timeout_secs))?
 }
 
+/// Write export content to a user-chosen file path.
+/// Returns the absolute path of the saved file so the frontend can show it.
+#[tauri::command]
+fn write_export_file(path: String, content: String) -> Result<String, String> {
+    std::fs::write(&path, &content)
+        .map_err(|e| format!("Failed to write file: {e}"))?;
+    Ok(path)
+}
+
 // ── Application entry ───────────────────────────────────────────
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             greet,
             get_system_theme,
@@ -307,6 +317,7 @@ pub fn run() {
             list_mysql_columns,
             list_redis_databases,
             execute_query,
+            write_export_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

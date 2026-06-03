@@ -15,7 +15,8 @@ import type { FilterValue } from "antd/es/table/interface";
 import { useMemo, useState, useCallback, useEffect } from "react";
 import { useTranslation } from "../../i18n";
 import { useSettings } from "../../settings/SettingsContext";
-import { executeQuery } from "../../db-api";
+import { executeQuery, writeExportFile } from "../../db-api";
+import { save } from "@tauri-apps/plugin-dialog";
 import type { DataSourceConfig } from "../../settings/types";
 import type { QueryResult, ColumnInfo } from "../../db-api";
 import {
@@ -259,28 +260,38 @@ export default function SqlResultTab({
     navigator.clipboard.writeText(buildJSON()).then(showCopySuccess);
   }, [buildJSON, t]);
 
-  // ---- Export handlers ----
-  const handleExportCSV = useCallback(() => {
-    const blob = new Blob([buildCSV()], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "result.csv";
-    a.click();
-    URL.revokeObjectURL(url);
-  }, [buildCSV]);
-
-  const handleExportJSON = useCallback(() => {
-    const blob = new Blob([buildJSON()], {
-      type: "application/json;charset=utf-8;",
+  // ---- Export handlers (native save dialog → Rust write) ----
+  const handleExportCSV = useCallback(async () => {
+    const filePath = await save({
+      defaultPath: "result.csv",
+      filters: [{ name: "CSV", extensions: ["csv"] }],
     });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "result.json";
-    a.click();
-    URL.revokeObjectURL(url);
-  }, [buildJSON]);
+    if (!filePath) return;
+    try {
+      const savedPath = await writeExportFile(filePath, buildCSV());
+      message.success(t("workspace.exportSaved", { path: savedPath }));
+    } catch (e) {
+      message.error(
+        e instanceof Error ? e.message : t("workspace.exportFailed"),
+      );
+    }
+  }, [buildCSV, t]);
+
+  const handleExportJSON = useCallback(async () => {
+    const filePath = await save({
+      defaultPath: "result.json",
+      filters: [{ name: "JSON", extensions: ["json"] }],
+    });
+    if (!filePath) return;
+    try {
+      const savedPath = await writeExportFile(filePath, buildJSON());
+      message.success(t("workspace.exportSaved", { path: savedPath }));
+    } catch (e) {
+      message.error(
+        e instanceof Error ? e.message : t("workspace.exportFailed"),
+      );
+    }
+  }, [buildJSON, t]);
 
   // ---- dropdown menus ----
   const copyMenuItems: MenuProps["items"] = [

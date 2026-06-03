@@ -124,6 +124,14 @@ export async function listRedisDatabases(
   return invoke<RedisDbInfo[]>("list_redis_databases", { config });
 }
 
+/** Write file content to a given path on disk. Returns the saved path. */
+export async function writeExportFile(
+  path: string,
+  content: string,
+): Promise<string> {
+  return invoke<string>("write_export_file", { path, content });
+}
+
 /** Execute a SQL query against a data source and return results.
  *  `config` — full connection config for the data source
  *  `database` — which database to USE within that data source

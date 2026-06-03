@@ -73,6 +73,8 @@ const messages: Messages = {
     exportCSV: "匯出 CSV",
     exportJSON: "匯出 JSON",
     copySuccess: "已複製到剪貼板",
+    exportSaved: "檔案已儲存至 {path}",
+    exportFailed: "匯出失敗",
     executing: "正在執行...",
     executionFailed: "查詢執行失敗",
     columns: "欄位",

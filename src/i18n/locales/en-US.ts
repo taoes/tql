@@ -74,6 +74,8 @@ const messages: Messages = {
     exportCSV: "Export CSV",
     exportJSON: "Export JSON",
     copySuccess: "Copied to clipboard",
+    exportSaved: "File saved to {path}",
+    exportFailed: "Export failed",
     executing: "Executing...",
     executionFailed: "Query execution failed",
     columns: "Columns",

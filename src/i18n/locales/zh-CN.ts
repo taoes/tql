@@ -72,6 +72,8 @@ const raw = {
     exportCSV: "导出 CSV",
     exportJSON: "导出 JSON",
     copySuccess: "已复制到剪贴板",
+    exportSaved: "文件已保存至 {path}",
+    exportFailed: "导出失败",
     executing: "正在执行...",
     executionFailed: "查询执行失败",
     columns: "列",
