@@ -269,6 +269,23 @@ async fn list_redis_databases(
         .map_err(|_| format!("Connection timed out after {}s", config.connect_timeout))?
 }
 
+#[tauri::command]
+async fn execute_query(
+    config: db::types::DataSourceConfig,
+    database: String,
+    sql: String,
+    max_rows: u32,
+    timeout_secs: u32,
+) -> Result<db::types::QueryResult, String> {
+    let timeout = Duration::from_secs(timeout_secs.max(1) as u64);
+    tokio::time::timeout(
+        timeout,
+        db::mysql::execute_query(&config, &database, &sql, max_rows),
+    )
+    .await
+    .map_err(|_| format!("Query timed out after {}s", timeout_secs))?
+}
+
 // ── Application entry ───────────────────────────────────────────
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -289,6 +306,7 @@ pub fn run() {
             list_mysql_tables,
             list_mysql_columns,
             list_redis_databases,
+            execute_query,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

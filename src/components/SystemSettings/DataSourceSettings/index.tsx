@@ -24,23 +24,6 @@ interface Props {
   onChange: (next: DatasourceSettings) => void;
 }
 
-const PORT_DEFAULTS: Record<DbType, number> = {
-  mysql: 3306,
-  redis: 6379,
-};
-
-const emptyConfig = (defaults: DatasourceSettings["defaults"]): DataSourceConfig => ({
-  id: "",
-  name: "",
-  dbType: "mysql",
-  host: "localhost",
-  port: 3306,
-  user: "",
-  password: "",
-  connectTimeout: defaults.connectTimeout,
-  enableSsl: defaults.enableSsl,
-});
-
 function DataSourceSettings({ value, onChange }: Props) {
   const t = useTranslation();
   const [modalOpen, setModalOpen] = useState(false);

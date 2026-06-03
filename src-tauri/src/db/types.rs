@@ -47,3 +47,16 @@ pub struct RedisDbInfo {
     pub index: u32,
     pub key_count: u64,
 }
+
+/// Result of a SQL query execution.
+/// `columns` describes the result set schema;
+/// `rows` is a 2-D array of JSON values, each inner vec is one row
+/// positional-matched to `columns`.
+/// Frontend expects camelCase fields.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QueryResult {
+    pub columns: Vec<ColumnInfo>,
+    pub rows: Vec<Vec<serde_json::Value>>,
+    pub row_count: usize,
+}

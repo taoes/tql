@@ -32,7 +32,7 @@ function SystemSettings() {
   const update = <K extends keyof AppSettings>(key: K, next: AppSettings[K]) => {
     setLocalSettings((prev) => ({ ...(prev ?? current), [key]: next }));
     if (key === "general") {
-      setLocale(next.general.language);
+      setLocale((next as AppSettings["general"]).language);
     }
   };
 

@@ -1,12 +1,9 @@
-import { Bubble, Sender, PromptsProps, Prompts, Actions } from "@ant-design/x";
+import { Bubble, Sender, Prompts, Actions } from "@ant-design/x";
 import type { ItemType } from "@ant-design/x/es/actions/interface";
 import { XMarkdown } from "@ant-design/x-markdown";
 import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import {
   ClearOutlined,
-  BulbOutlined,
-  InfoCircleOutlined,
-  StopOutlined,
   WarningOutlined,
   RobotOutlined,
   UserOutlined,
@@ -60,29 +57,20 @@ function extractSqlStatements(content: string): string[] {
   return matches;
 }
 
-const prompts: PromptsProps["items"] = [
-  {
-    key: "1",
-    icon: <BulbOutlined style={{ color: "#FFD700" }} />,
-    label: "Ignite Your Creativity",
-    description: "Got any sparks for a new project?",
-  },
-  {
-    key: "2",
-    icon: <InfoCircleOutlined style={{ color: "#1890FF" }} />,
-    label: "Uncover Background Info",
-    description: "Help me understand the background of this topic.",
-  },
-];
-
 export interface DbContext {
   datasourceName: string;
   databaseName: string;
   dbType: string;
 }
 
+/** Lightweight execution context passed when the user runs SQL */
+export interface SqlExecutionContext {
+  datasourceName: string;
+  databaseName: string;
+}
+
 interface AIChatProps {
-  onRunSql?: (sql: string) => void;
+  onRunSql?: (sql: string, context: SqlExecutionContext) => void;
   /** If set, the AI is focused on a specific database */
   databaseContext?: DbContext | null;
 }
@@ -111,16 +99,7 @@ export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
     [messageApi, t],
   );
 
-  /** Extract and execute SQL from AI response */
-  const handleExecute = useCallback(
-    (content: string) => {
-      const sqls = extractSqlStatements(content);
-      if (sqls.length > 0 && onRunSql) {
-        onRunSql(sqls[0]);
-      }
-    },
-    [onRunSql],
-  );
+  // (handleExecute reserved for future use — uses onRunSql directly in action items)
 
   // Document content for the current database context
   const [docContent, setDocContent] = useState<string | null>(null);
@@ -190,7 +169,7 @@ export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
 
   /** Regenerate AI response for a user message */
   const handleRegenerate = useCallback(
-    (userKey: string, userContent: string) => {
+    (userKey: string, _userContent: string) => {
       if (streaming) return;
 
       const aiKey = (Date.now() + 1).toString();
@@ -346,14 +325,6 @@ export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
     [streaming, modelConfig, buildApiMessages, databaseContext, messageApi],
   );
 
-  /** Stop the current stream */
-  const handleStop = useCallback(() => {
-    abortRef.current?.abort();
-    abortRef.current = null;
-    setStreaming(false);
-    setStreamingKey(null);
-  }, []);
-
   const handleClear = useCallback(() => {
     if (streaming) {
       abortRef.current?.abort();
@@ -395,7 +366,7 @@ export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
       {databaseContext && (
         <Alert
           type="info"
-          message={
+          title={
             <span>
               当前数据库: <strong>{databaseContext.databaseName}</strong>
               <span style={{ marginLeft: 12, color: "#888" }}>
@@ -432,7 +403,11 @@ export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
                   key: "execute",
                   label: t("aiChat.play"),
                   icon: <PlayCircleOutlined />,
-                  onItemClick: () => onRunSql(sqls[0]),
+                  onItemClick: () =>
+                    onRunSql(sqls[0], {
+                      datasourceName: databaseContext!.datasourceName,
+                      databaseName: databaseContext!.databaseName,
+                    }),
                 });
               } else {
                 actionItems.push({
@@ -445,7 +420,11 @@ export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
                       sql.length > 60
                         ? sql.substring(0, 60) + "..."
                         : sql,
-                    onItemClick: () => onRunSql(sql),
+                    onItemClick: () =>
+                      onRunSql(sql, {
+                        datasourceName: databaseContext!.datasourceName,
+                        databaseName: databaseContext!.databaseName,
+                      }),
                   })),
                 });
               }

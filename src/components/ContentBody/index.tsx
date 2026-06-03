@@ -2,9 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Tabs, Empty } from "antd";
 import { MessageOutlined, TableOutlined, CodeOutlined } from "@ant-design/icons";
 import AIChat from "../AIChat";
-import type { DbContext } from "../AIChat";
+import type { DbContext, SqlExecutionContext } from "../AIChat";
 import SqlResultTab from "../SqlResultTab";
 import { useTranslation } from "../../i18n";
+import { useSettings } from "../../settings/SettingsContext";
+import type { DataSourceConfig } from "../../settings/types";
 import "./index.css";
 
 // ── Tab types ──────────────────────────────────────────────────
@@ -13,6 +15,8 @@ interface SqlTab {
   key: string;
   index: number;
   sql: string;
+  dataSourceConfig: DataSourceConfig;
+  databaseName: string;
 }
 
 interface DbChatTab {
@@ -30,6 +34,7 @@ interface ContentBodyProps {
 
 function ContentBody({ dbChatToOpen, onDbChatOpened }: ContentBodyProps) {
   const t = useTranslation();
+  const { settings } = useSettings();
   const [sqlTabs, setSqlTabs] = useState<SqlTab[]>([]);
   const [dbChats, setDbChats] = useState<DbChatTab[]>([]);
   const [activeKey, setActiveKey] = useState<string>("");
@@ -67,16 +72,29 @@ function ContentBody({ dbChatToOpen, onDbChatOpened }: ContentBodyProps) {
   }, [dbChatToOpen, onDbChatOpened]);
 
   // ── Run SQL → new result tab ─────────────────────────────────
-  const handleRunSql = useCallback((sql: string) => {
-    seqRef.current += 1;
-    const next: SqlTab = {
-      key: `sql-${seqRef.current}`,
-      index: seqRef.current,
-      sql,
-    };
-    setSqlTabs((prev) => [...prev, next]);
-    setActiveKey(next.key);
-  }, []);
+  const handleRunSql = useCallback(
+    (sql: string, context?: SqlExecutionContext) => {
+      if (!context || !settings) return;
+
+      // Resolve DataSourceConfig by matching the datasource name
+      const ds = settings.datasource.connections.find(
+        (c) => c.name === context.datasourceName,
+      );
+      if (!ds) return;
+
+      seqRef.current += 1;
+      const next: SqlTab = {
+        key: `sql-${seqRef.current}`,
+        index: seqRef.current,
+        sql,
+        dataSourceConfig: ds,
+        databaseName: context.databaseName,
+      };
+      setSqlTabs((prev) => [...prev, next]);
+      setActiveKey(next.key);
+    },
+    [settings],
+  );
 
   // ── Close tab logic ──────────────────────────────────────────
   const closeTab = useCallback((targetKey: string) => {
@@ -130,7 +148,13 @@ function ContentBody({ dbChatToOpen, onDbChatOpened }: ContentBodyProps) {
           </span>
         ),
         closable: true,
-        children: <SqlResultTab sql={it.sql} />,
+        children: (
+          <SqlResultTab
+            sql={it.sql}
+            dataSourceConfig={it.dataSourceConfig}
+            databaseName={it.databaseName}
+          />
+        ),
       })),
     ],
     [sqlTabs, dbChats, t, handleRunSql],

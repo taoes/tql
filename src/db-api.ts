@@ -23,6 +23,16 @@ export interface RedisDbInfo {
   key_count: number;
 }
 
+/** Result of a SQL query execution.
+ *  `columns` describes the result set schema;
+ *  `rows` is a 2-D array, each inner array is one row
+ *  positional-matched to `columns`. */
+export interface QueryResult {
+  columns: ColumnInfo[];
+  rows: (string | number | null | boolean)[][];
+  rowCount: number;
+}
+
 /** Test a database connection. Returns true on success. */
 export async function testConnection(config: DataSourceConfig): Promise<boolean> {
   return invoke<boolean>("test_connection", { config });
@@ -112,4 +122,26 @@ export async function listRedisDatabases(
   config: DataSourceConfig,
 ): Promise<RedisDbInfo[]> {
   return invoke<RedisDbInfo[]>("list_redis_databases", { config });
+}
+
+/** Execute a SQL query against a data source and return results.
+ *  `config` — full connection config for the data source
+ *  `database` — which database to USE within that data source
+ *  `sql` — the SQL statement to execute
+ *  `maxRows` — max rows to return (applied server-side via row cap)
+ *  `timeoutSecs` — query timeout in seconds */
+export async function executeQuery(
+  config: DataSourceConfig,
+  database: string,
+  sql: string,
+  maxRows: number,
+  timeoutSecs: number,
+): Promise<QueryResult> {
+  return invoke<QueryResult>("execute_query", {
+    config,
+    database,
+    sql,
+    maxRows,
+    timeoutSecs,
+  });
 }
