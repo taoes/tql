@@ -127,9 +127,8 @@ export function streamMessages(
 
       const decoder = new TextDecoder();
       let buffer = "";
-      let streamDone = false;
 
-      while (!streamDone) {
+      while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
@@ -175,12 +174,6 @@ export function streamMessages(
                 callbacks.onReasoning?.(delta.thinking);
               }
             }
-
-            // message_stop — stream complete
-            if (event.type === "message_stop") {
-              streamDone = true;
-              break;
-            }
           } catch (parseErr) {
             // If we already threw a structured error above, re-throw
             if (
@@ -194,8 +187,23 @@ export function streamMessages(
         }
       }
 
-      // Cancel reader to cleanly close the stream (prevents hanging)
-      reader.cancel().catch(() => {});
+      // Flush remaining buffer (same as DeepSeek adapter)
+      if (buffer.trim() && buffer.trim().startsWith("data:")) {
+        const data = buffer.trim().slice(5).trim();
+        try {
+          const event: AnthropicStreamEvent = JSON.parse(data);
+          if (event.type === "content_block_delta") {
+            const delta = event.delta;
+            if (delta.type === "text_delta" && delta.text) {
+              fullContent += delta.text;
+              callbacks.onChunk(delta.text);
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
+
       callbacks.onComplete(fullContent);
     })
     .catch((error: Error) => {
