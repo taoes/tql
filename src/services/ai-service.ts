@@ -1,5 +1,6 @@
 import type { AIService, AIServiceConfig, ChatMessage, StreamCallbacks } from "./types";
 import { streamChatCompletion as openaiCompatibleStream } from "./deepseek/api";
+import { streamMessages as anthropicStream } from "./anthropic/api";
 
 // ============================================================
 // AI Service Factory
@@ -35,18 +36,9 @@ export function createAIService(config: AIServiceConfig): AIService {
       };
 
     case "anthropic":
-      // Anthropic uses a different protocol (Messages API).
-      // Placeholder — will be implemented when the Anthropic adapter is added.
       return {
-        streamChat(_messages: ChatMessage[], callbacks: StreamCallbacks, _signal?: AbortSignal,): AbortController {
-          const controller = new AbortController();
-          // Defer the error so the caller has time to attach handlers
-          setTimeout(() => {
-            callbacks.onError(
-              new Error("Anthropic provider is not yet implemented"),
-            );
-          }, 0);
-          return controller;
+        streamChat(messages: ChatMessage[], callbacks: StreamCallbacks, signal?: AbortSignal): AbortController {
+          return anthropicStream(config, messages, callbacks, signal);
         },
       };
 

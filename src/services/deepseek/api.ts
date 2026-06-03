@@ -1,5 +1,6 @@
 import type { AIServiceConfig, StreamCallbacks, ChatMessage } from "../types";
 import type { ChatCompletionRequest, ChatCompletionChunk } from "./types";
+import { combineSignals } from "../utils";
 
 // ============================================================
 // DeepSeek / OpenAI-compatible streaming implementation
@@ -140,24 +141,4 @@ export function streamChatCompletion(
     });
 
   return controller;
-}
-
-/** Combine two AbortSignals so either one aborts the operation */
-function combineSignals(a: AbortSignal, b: AbortSignal): AbortSignal {
-  const controller = new AbortController();
-
-  const onAbort = () => {
-    controller.abort();
-    a.removeEventListener("abort", onAbort);
-    b.removeEventListener("abort", onAbort);
-  };
-
-  a.addEventListener("abort", onAbort);
-  b.addEventListener("abort", onAbort);
-
-  if (a.aborted || b.aborted) {
-    controller.abort();
-  }
-
-  return controller.signal;
 }
