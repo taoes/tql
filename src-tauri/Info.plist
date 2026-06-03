@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>TQL needs microphone access for voice input in AI Chat. Your voice data is processed locally and is never stored or transmitted.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>TQL uses speech recognition to convert your voice to text for AI Chat queries.</string>
+</dict>
+</plist>
