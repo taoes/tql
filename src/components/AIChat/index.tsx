@@ -122,6 +122,72 @@ export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
     [onRunSql],
   );
 
+  // Document content for the current database context
+  const [docContent, setDocContent] = useState<string | null>(null);
+
+  // Derive a stable context identity for reset detection
+  const contextId = databaseContext
+    ? `${databaseContext.datasourceName}::${databaseContext.databaseName}`
+    : null;
+
+  // Reset messages & doc when switching to a different database
+  useEffect(() => {
+    setMessages([
+      { key: "1", role: "assistant", content: t("aiChat.greeting") },
+    ]);
+    setDocContent(null);
+  }, [contextId]);
+
+  /** Load documentation when database context changes */
+  useEffect(() => {
+    if (!databaseContext || databaseContext.dbType !== "mysql") {
+      setDocContent(null);
+      return;
+    }
+    let cancelled = false;
+    readDocument(databaseContext.datasourceName, databaseContext.databaseName)
+      .then((content) => {
+        if (!cancelled) setDocContent(content);
+      })
+      .catch(() => {
+        // Document not found — that's OK, we'll tell the AI
+        if (!cancelled) setDocContent(null);
+      });
+    return () => { cancelled = true; };
+  }, [databaseContext?.datasourceName, databaseContext?.databaseName, databaseContext?.dbType]);
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  /**
+   * System prompt — injected into every API call but never displayed in the UI.
+   * Includes database context and saved documentation when available.
+   */
+  const systemPrompt = useMemo(() => {
+    let prompt = t("aiChat.systemPrompt");
+    if (databaseContext) {
+      prompt += `\n\n## 当前连接的数据库信息`;
+      prompt += `\n- 数据源: ${databaseContext.datasourceName}`;
+      prompt += `\n- 数据库: ${databaseContext.databaseName}`;
+      prompt += `\n- 类型: ${databaseContext.dbType === "mysql" ? "MySQL" : "Redis"}`;
+
+      if (databaseContext.dbType === "mysql") {
+        if (docContent) {
+          prompt += `\n\n## 数据库文档（已生成）`;
+          prompt += `\n以下是该数据库的完整技术文档，请基于此文档理解表结构、字段含义和表关系，在生成 SQL 时充分利用索引和表关系进行优化。记住：当用户要求增删改查时，只输出纯 SQL，不要加任何解释：\n`;
+          prompt += `\n${docContent}`;
+        } else {
+          prompt += `\n\n## 数据库文档`;
+          prompt += `\n⚠️ 该数据库的文档信息不存在，尚未初始化。如需了解表结构、字段含义和表关系，请使用左侧数据源树的右键菜单「生成文档」功能先生成一份技术文档。`;
+          prompt += `\n\n在此期间，请基于数据库名称和常见的命名规范推断表结构，回答用户的问题。如果用户询问具体表结构或字段信息，建议用户先生成文档。`;
+        }
+      }
+    }
+    return prompt;
+  }, [t, databaseContext, docContent]);
+
   /** Regenerate AI response for a user message */
   const handleRegenerate = useCallback(
     (userKey: string, userContent: string) => {
@@ -188,72 +254,6 @@ export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
     },
     [streaming, messages, modelConfig, systemPrompt],
   );
-
-  // Document content for the current database context
-  const [docContent, setDocContent] = useState<string | null>(null);
-
-  // Derive a stable context identity for reset detection
-  const contextId = databaseContext
-    ? `${databaseContext.datasourceName}::${databaseContext.databaseName}`
-    : null;
-
-  // Reset messages & doc when switching to a different database
-  useEffect(() => {
-    setMessages([
-      { key: "1", role: "assistant", content: t("aiChat.greeting") },
-    ]);
-    setDocContent(null);
-  }, [contextId]);
-
-  /** Load documentation when database context changes */
-  useEffect(() => {
-    if (!databaseContext || databaseContext.dbType !== "mysql") {
-      setDocContent(null);
-      return;
-    }
-    let cancelled = false;
-    readDocument(databaseContext.datasourceName, databaseContext.databaseName)
-      .then((content) => {
-        if (!cancelled) setDocContent(content);
-      })
-      .catch(() => {
-        // Document not found — that's OK, we'll tell the AI
-        if (!cancelled) setDocContent(null);
-      });
-    return () => { cancelled = true; };
-  }, [databaseContext?.datasourceName, databaseContext?.databaseName, databaseContext?.dbType]);
-
-  // Auto-scroll to bottom when messages change
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  /**
-   * System prompt — injected into every API call but never displayed in the UI.
-   * Includes database context and saved documentation when available.
-   */
-  const systemPrompt = useMemo(() => {
-    let prompt = t("aiChat.systemPrompt");
-    if (databaseContext) {
-      prompt += `\n\n## 当前连接的数据库信息`;
-      prompt += `\n- 数据源: ${databaseContext.datasourceName}`;
-      prompt += `\n- 数据库: ${databaseContext.databaseName}`;
-      prompt += `\n- 类型: ${databaseContext.dbType === "mysql" ? "MySQL" : "Redis"}`;
-
-      if (databaseContext.dbType === "mysql") {
-        if (docContent) {
-          prompt += `\n\n## 数据库文档（已生成）`;
-          prompt += `\n以下是该数据库的完整技术文档，请基于此文档理解表结构、字段含义和表关系，在生成 SQL 时充分利用索引和表关系进行优化。记住：当用户要求增删改查时，只输出纯 SQL，不要加任何解释：\n`;
-          prompt += `\n${docContent}`;
-        } else {
-          prompt += `\n\n## 数据库文档`;
-          prompt += `\n⚠️ 该数据库的文档信息不存在，尚未初始化。如需了解表结构、字段含义和表关系，请使用左侧数据源树的右键菜单「生成文档」功能先生成一份技术文档。`;
-          prompt += `\n\n在此期间，请基于数据库名称和常见的命名规范推断表结构，回答用户的问题。如果用户询问具体表结构或字段信息，建议用户先生成文档。`;
-        }
-      }
-    }
-    return prompt;
-  }, [t, databaseContext, docContent]);
 
   /** Build chat messages array for the API (system prompt + history + new message) */
   const buildApiMessages = useCallback(
