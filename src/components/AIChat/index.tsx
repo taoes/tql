@@ -528,7 +528,7 @@ export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
         />
         <BorderBeam>
           <Sender
-            allowSpeech={false}
+            allowSpeech={true}
             style={{ marginTop: 10 }}
             onSubmit={handleSubmit}
             submitType="shiftEnter"

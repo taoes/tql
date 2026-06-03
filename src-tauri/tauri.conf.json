@@ -22,7 +22,8 @@
         "decorations": true,
         "alwaysOnTop": false,
         "visible": true,
-        "fullscreen": false
+        "fullscreen": false,
+        "useHttpsScheme": true
       }
     ],
     "security": {
@@ -38,6 +39,13 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "macOS": {
+      "minimumSystemVersion": "13.0",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "TQL needs microphone access for voice input in AI Chat. Your voice data is processed locally and is never stored or transmitted.",
+        "NSSpeechRecognitionUsageDescription": "TQL uses speech recognition to convert your voice to text for AI Chat queries."
+      }
+    }
   }
 }
