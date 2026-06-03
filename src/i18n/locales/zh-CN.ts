@@ -164,6 +164,7 @@ const raw = {
       formPort: "端口",
       formUser: "用户名",
       formPassword: "密码",
+      formDatabase: "数据库",
       testConnection: "测试连接",
       testSuccess: "连接成功",
       testFailed: "连接失败: {error}",

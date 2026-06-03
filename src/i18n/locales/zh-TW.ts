@@ -165,6 +165,7 @@ const messages: Messages = {
       formPort: "連接埠",
       formUser: "使用者名稱",
       formPassword: "密碼",
+      formDatabase: "資料庫",
       testConnection: "測試連線",
       testSuccess: "連線成功",
       testFailed: "連線失敗: {error}",

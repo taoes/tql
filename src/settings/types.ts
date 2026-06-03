@@ -49,6 +49,8 @@ export interface DataSourceConfig {
   password: string;
   connectTimeout: number;
   enableSsl: boolean;
+  /** Optional default database/schema for MySQL connections */
+  database?: string;
 }
 
 export interface DatasourceSettings {

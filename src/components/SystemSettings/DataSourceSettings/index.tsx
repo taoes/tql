@@ -333,6 +333,13 @@ function DataSourceSettings({ value, onChange }: Props) {
           <Form.Item name="enableSsl" label={t("settings.datasource.enableSsl")} valuePropName="checked">
             <Switch />
           </Form.Item>
+
+          {dbTypeVal === "mysql" && (
+            <Form.Item name="database" label={t("settings.datasource.formDatabase")}>
+              <Input placeholder="可选，默认数据库 / Schema" />
+            </Form.Item>
+          )}
+
         </Form>
 
         <Button

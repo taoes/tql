@@ -166,6 +166,7 @@ const messages: Messages = {
       formPort: "Port",
       formUser: "Username",
       formPassword: "Password",
+      formDatabase: "Database",
       testConnection: "Test Connection",
       testSuccess: "Connection successful",
       testFailed: "Connection failed: {error}",

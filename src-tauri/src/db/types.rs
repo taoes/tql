@@ -24,6 +24,10 @@ pub struct DataSourceConfig {
     pub password: Option<String>,
     pub connect_timeout: u32,
     pub enable_ssl: bool,
+    /// Optional default database for MySQL connections.
+    /// When set, the connection URL includes this database
+    /// so all queries default to it.
+    pub database: Option<String>,
 }
 
 /// Column metadata returned for MySQL tables.

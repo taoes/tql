@@ -4,20 +4,20 @@ use mysql_async::Conn;
 use super::types::{ColumnInfo, DataSourceConfig, QueryResult};
 
 /// Build MySQL connection URL from config.
+/// If `config.database` is set, the URL targets that database.
 fn build_url(config: &DataSourceConfig) -> String {
     let user = config.user.as_deref().unwrap_or("root");
     let pw = config.password.as_deref().unwrap_or("");
-    if config.enable_ssl {
-        format!(
-            "mysql://{}:{}@{}:{}/?ssl-mode=REQUIRED",
-            user, pw, config.host, config.port
-        )
+    let db = config.database.as_deref().unwrap_or("");
+    let ssl = if config.enable_ssl {
+        "?ssl-mode=REQUIRED"
     } else {
-        format!(
-            "mysql://{}:{}@{}:{}/",
-            user, pw, config.host, config.port
-        )
-    }
+        ""
+    };
+    format!(
+        "mysql://{}:{}@{}:{}/{}{}",
+        user, pw, config.host, config.port, db, ssl
+    )
 }
 
 /// Open a new MySQL connection.
