@@ -127,8 +127,9 @@ export function streamMessages(
 
       const decoder = new TextDecoder();
       let buffer = "";
+      let streamDone = false;
 
-      while (true) {
+      while (!streamDone) {
         const { done, value } = await reader.read();
         if (done) break;
 
@@ -177,6 +178,7 @@ export function streamMessages(
 
             // message_stop — stream complete
             if (event.type === "message_stop") {
+              streamDone = true;
               break;
             }
           } catch (parseErr) {
@@ -192,6 +194,8 @@ export function streamMessages(
         }
       }
 
+      // Cancel reader to cleanly close the stream (prevents hanging)
+      reader.cancel().catch(() => {});
       callbacks.onComplete(fullContent);
     })
     .catch((error: Error) => {
