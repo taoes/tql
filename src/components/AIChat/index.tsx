@@ -1,4 +1,5 @@
 import { Bubble, Sender, PromptsProps, Prompts } from "@ant-design/x";
+import { XMarkdown } from "@ant-design/x-markdown";
 import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import {
   ClearOutlined,
@@ -6,13 +7,14 @@ import {
   InfoCircleOutlined,
   StopOutlined,
   WarningOutlined,
+  RobotOutlined,
+  UserOutlined,
 } from "@ant-design/icons";
 import { useTranslation } from "../../i18n";
 import { createAIService } from "../../services";
 import { useModelConfig } from "../../settings/SettingsContext";
 import type { ChatMessage, StreamCallbacks } from "../../services";
-import { Button, Space, Alert, message, BorderBeam } from "antd";
-import ButtonGroup from "antd/lib/button/ButtonGroup";
+import { Button, Space, Alert, message, BorderBeam, Avatar } from "antd";
 import { readDocument } from "../../db-api";
 import "./index.css";
 
@@ -29,11 +31,6 @@ interface Message {
   role: "assistant" | "user";
   content: string;
 }
-
-const roleConfig = {
-  assistant: { placement: "start" as const },
-  user: { placement: "end" as const },
-};
 
 const prompts: PromptsProps["items"] = [
   {
@@ -71,8 +68,9 @@ export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
     { key: "1", role: "assistant", content: t("aiChat.greeting") },
   ]);
   const [streaming, setStreaming] = useState(false);
-  const [, setStreamingKey] = useState<string | null>(null);
+  const [streamingKey, setStreamingKey] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Document content for the current database context
   const [docContent, setDocContent] = useState<string | null>(null);
@@ -107,6 +105,11 @@ export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
       });
     return () => { cancelled = true; };
   }, [databaseContext?.datasourceName, databaseContext?.databaseName, databaseContext?.dbType]);
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   /**
    * System prompt — injected into every API call but never displayed in the UI.
@@ -288,7 +291,54 @@ export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
         />
       )}
       <div className="ai-chat-messages">
-        <Bubble.List items={messages} role={roleConfig} />
+        {messages.map((msg) => {
+          const isAssistant = msg.role === "assistant";
+          const isStreaming = isAssistant && streaming && msg.key === streamingKey;
+
+          return (
+            <Bubble
+              key={msg.key}
+              placement={isAssistant ? "start" : "end"}
+              variant={isAssistant ? "outlined" : "filled"}
+              shape="corner"
+              content={msg.content}
+              streaming={isStreaming}
+              typing={
+                isAssistant && !isStreaming && msg.content.length > 0
+                  ? { effect: "fade-in", step: 6, interval: 50 }
+                  : false
+              }
+              avatar={
+                isAssistant ? (
+                  <Avatar
+                    icon={<RobotOutlined />}
+                    style={{ backgroundColor: "#1677ff" }}
+                  />
+                ) : (
+                  <Avatar
+                    icon={<UserOutlined />}
+                    style={{ backgroundColor: "#52c41a" }}
+                  />
+                )
+              }
+              contentRender={
+                isAssistant
+                  ? (content: string) => (
+                      <XMarkdown
+                        content={content}
+                        streaming={{
+                          hasNextChunk: isStreaming,
+                          tail: { content: "▋" },
+                        }}
+                        openLinksInNewTab
+                      />
+                    )
+                  : undefined
+              }
+            />
+          );
+        })}
+        <div ref={messagesEndRef} />
       </div>
       <div className="ai-chat-input">
         <Prompts
