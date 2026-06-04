@@ -181,8 +181,9 @@ export default function SqlResultTab({
         title: c.title,
         dataIndex: c.dataIndex,
         key: c.key,
+        width: 200,
         sorter: true as const,
-        ellipsis: true,
+        ellipsis: { showTitle: true },
         render: (v: unknown) => {
           if (v === null || v === undefined)
             return (

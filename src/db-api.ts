@@ -10,7 +10,7 @@ import type { DataSourceConfig } from "./settings/types";
 /** Column metadata returned for MySQL tables */
 export interface ColumnInfo {
   name: string;
-  col_type: string;
+  colType: string;
   nullable: boolean;
   /** "PRI", "UNI", "MUL", or "" */
   key: string;
@@ -20,7 +20,7 @@ export interface ColumnInfo {
 /** Redis database index info */
 export interface RedisDbInfo {
   index: number;
-  key_count: number;
+  keyCount: number;
 }
 
 /** Result of a SQL query execution.

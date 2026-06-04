@@ -47,11 +47,11 @@ export default function App() {
       {contextHolder}
       <Splitter
         style={{ height: "100%" }}
-        layout="horizontal"
+        orientation="horizontal"
         className="app-splitter"
         collapsible={{ motion: true }}
       >
-        <Splitter.Panel defaultSize="15%" min="200px" max="20%" collapsible>
+        <Splitter.Panel defaultSize="20%" min="200px" max="20%" collapsible>
           <aside className="sidebar">
             <SidebarTitle />
             <SidebarBody
