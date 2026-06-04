@@ -302,6 +302,75 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            None::<Vec<&str>>,
+        ))
+        .setup(|app| {
+            use tauri::Manager;
+            use tauri::PhysicalPosition;
+            use tauri::PhysicalSize;
+
+            // ── Window: fill the screen ──────────────────────────
+            if let Some(window) = app.get_webview_window("main") {
+                if let Ok(Some(monitor)) = window.primary_monitor() {
+                    let size = monitor.size();
+                    let _ = window.set_position(PhysicalPosition::new(0, 0));
+                    let _ = window.set_size(PhysicalSize::new(size.width, size.height));
+                }
+            }
+
+            // ── Menu: simplified macOS menu bar ──────────────────
+            #[cfg(target_os = "macos")]
+            {
+                use tauri::menu::{MenuBuilder, SubmenuBuilder};
+
+                let handle = app.handle();
+
+                // App menu (first submenu = app name)
+                let app_menu = SubmenuBuilder::new(handle, "TQL")
+                    .about(None)
+                    .separator()
+                    .services()
+                    .separator()
+                    .hide()
+                    .hide_others()
+                    .show_all()
+                    .separator()
+                    .quit()
+                    .build()?;
+
+                // Edit submenu
+                let edit_menu = SubmenuBuilder::new(handle, "Edit")
+                    .undo()
+                    .redo()
+                    .separator()
+                    .cut()
+                    .copy()
+                    .paste()
+                    .separator()
+                    .select_all()
+                    .build()?;
+
+                // Window submenu
+                let window_menu = SubmenuBuilder::new(handle, "Window")
+                    .minimize()
+                    .close_window()
+                    .separator()
+                    .bring_all_to_front()
+                    .build()?;
+
+                let menu = MenuBuilder::new(handle)
+                    .item(&app_menu)
+                    .item(&edit_menu)
+                    .item(&window_menu)
+                    .build()?;
+
+                app.set_menu(menu)?;
+            }
+
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             greet,
             get_system_theme,

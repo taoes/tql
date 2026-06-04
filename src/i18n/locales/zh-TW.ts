@@ -171,6 +171,7 @@ const messages: Messages = {
       testFailed: "連線失敗: {error}",
       duplicateName: "資料來源名稱已存在",
       noConnections: "暫無資料來源設定",
+      selectPlaceholder: "請選擇資料來源",
       loadingFailed: "載入資料庫列表失敗",
     },
     style: {

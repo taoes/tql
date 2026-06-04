@@ -55,7 +55,7 @@ const messages: Messages = {
       "\\n3. When writing SQL, always consider safety — never suggest DROP, TRUNCATE, or DELETE without explicit user confirmation and a WHERE clause." +
       "\\n4. Be concise and provide executable SQL whenever possible." +
       "\\n5. If the user's question is ambiguous, ask for clarification about their database schema or intent." +
-      "\\n6. **Output format rule**: When the user explicitly requests a CRUD operation (SELECT / INSERT / UPDATE / DELETE), output **only** the raw SQL statement — no explanations, no Markdown code blocks (like \\`\\`\\`sql). When the user asks about database information, table structures, field meanings, or other non-operational questions, output text normally. Decision criteria: user intent is data manipulation → output SQL only; user intent is information inquiry → output text." +
+      "\\n6. **Output format rule**: When the user explicitly requests a CRUD operation (SELECT / INSERT / UPDATE / DELETE), output **only** the raw SQL statement wrapped in a \\`\\`\\`sql code block — no explanations. When the user asks about database information, table structures, field meanings, or other non-operational questions, output text normally. Decision criteria: user intent is data manipulation → output SQL only; user intent is information inquiry → output text." +
       "\\n7. **LIMIT rule**: Every SELECT query **must** end with \\`LIMIT 50\\`. Even if the user doesn't specify a LIMIT, you must add it automatically. If the user explicitly specifies a LIMIT value, use the user's value instead.",
   },
   workspace: {
@@ -172,6 +172,7 @@ const messages: Messages = {
       testFailed: "Connection failed: {error}",
       duplicateName: "Data source name already exists",
       noConnections: "No data sources configured",
+      selectPlaceholder: "Select a data source",
       loadingFailed: "Failed to load database list",
     },
     style: {

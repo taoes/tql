@@ -541,7 +541,11 @@ function SidebarBody({
           onChange={setSelectedId}
           options={selectOptions}
           style={{ width: "100%", height: "32px" }}
-          placeholder={t("settings.datasource.noConnections")}
+          placeholder={
+            connections.length > 0
+              ? t("settings.datasource.selectPlaceholder")
+              : t("settings.datasource.noConnections")
+          }
           notFoundContent={t("settings.datasource.noConnections")}
         />
       </div>

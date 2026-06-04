@@ -207,7 +207,7 @@ h1 {
   }
 }
 
-/* 应用布局样式：左侧 15%，右侧 85% */
+/* 应用布局样式：使用 antd Splitter 左右可拖拽调整 */
 .app-root {
   display: flex;
   height: 100vh;
@@ -216,9 +216,13 @@ h1 {
   color: var(--color-foreground, var(--foreground));
 }
 
+.app-splitter {
+  flex: 1;
+}
+
 .sidebar {
-  width: 15%;
-  min-width: 200px;
+  height: 100%;
+  min-width: 0;
   background: var(--color-sidebar, var(--sidebar));
   color: var(--color-sidebar-foreground, var(--sidebar-foreground));
   display: flex;
@@ -227,18 +231,7 @@ h1 {
 }
 
 .content {
-  width: 85%;
+  height: 100%;
   display: flex;
   flex-direction: column;
-}
-
-@media (max-width: 768px) {
-  .app-root {
-    flex-direction: column;
-  }
-  .sidebar,
-  .content {
-    width: 100%;
-    min-width: 0;
-  }
 }

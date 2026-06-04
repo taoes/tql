@@ -17,6 +17,7 @@ import { useModelConfig } from "../../settings/SettingsContext";
 import type { ChatMessage, StreamCallbacks } from "../../services";
 import { Button, Space, Alert, message, BorderBeam, Avatar } from "antd";
 import { readDocument } from "../../db-api";
+import CodeBlock from "./CodeBlock";
 import "./index.css";
 
 // ============================================================
@@ -85,6 +86,7 @@ export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
   ]);
   const [streaming, setStreaming] = useState(false);
   const [streamingKey, setStreamingKey] = useState<string | null>(null);
+  const [inputValue, setInputValue] = useState("");
   const abortRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -155,7 +157,7 @@ export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
       if (databaseContext.dbType === "mysql") {
         if (docContent) {
           prompt += `\n\n## 数据库文档（已生成）`;
-          prompt += `\n以下是该数据库的完整技术文档，请基于此文档理解表结构、字段含义和表关系，在生成 SQL 时充分利用索引和表关系进行优化。记住：当用户要求增删改查时，只输出纯 SQL，不要加任何解释：\n`;
+          prompt += `\n以下是该数据库的完整技术文档，请基于此文档理解表结构、字段含义和表关系，在生成 SQL 时充分利用索引和表关系进行优化。记住：当用户要求增删改查时，使用 \`\`\`sql 代码块包裹 SQL 语句进行输出，不要加任何解释：\n`;
           prompt += `\n${docContent}`;
         } else {
           prompt += `\n\n## 数据库文档`;
@@ -268,6 +270,9 @@ export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
 
     const userKey = Date.now().toString();
     const aiKey = (Date.now() + 1).toString();
+
+    // Clear input immediately on submit
+    setInputValue("");
 
     // Add user message
     setMessages((prev) => [
@@ -480,6 +485,7 @@ export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
                   ? (content: string) => (
                       <XMarkdown
                         content={content}
+                        components={{ code: CodeBlock }}
                         streaming={{
                           hasNextChunk: isStreaming,
                           tail: { content: "▋" },
@@ -509,8 +515,10 @@ export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
           <Sender
             allowSpeech={true}
             style={{ marginTop: 10 }}
+            value={inputValue}
+            onChange={(v) => setInputValue(v)}
             onSubmit={handleSubmit}
-            submitType="shiftEnter"
+            submitType="enter"
             placeholder={t("aiChat.placeholder")}
             autoSize={{ minRows: 3, maxRows: 5 }}
             footer={footer}

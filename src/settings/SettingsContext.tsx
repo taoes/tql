@@ -10,6 +10,7 @@ import type { AppSettings } from "./types";
 import { DEFAULT_SETTINGS } from "./types";
 import { loadSettings, saveSettings } from "./api";
 import { useTranslation } from "../i18n";
+import { enable, disable } from "@tauri-apps/plugin-autostart";
 
 // ============================================================
 // Settings Context
@@ -42,6 +43,17 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     try {
       const s = await loadSettings();
       setSettings(s);
+
+      // Sync OS autostart on initial load
+      try {
+        if (s.general.autoStart) {
+          await enable();
+        } else {
+          await disable();
+        }
+      } catch {
+        // autostart may not be available on all platforms
+      }
     } catch (e) {
       // Fall back to defaults so the app remains functional
       // even when Tauri backend is unavailable (e.g. Vite dev mode)
@@ -56,6 +68,17 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     async (next: AppSettings) => {
       await saveSettings(next);
       setSettings(next);
+
+      // Sync OS-level autostart with the persisted setting
+      try {
+        if (next.general.autoStart) {
+          await enable();
+        } else {
+          await disable();
+        }
+      } catch {
+        // autostart plugin may not be available on all platforms
+      }
     },
     [],
   );

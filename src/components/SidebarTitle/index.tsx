@@ -7,7 +7,7 @@ function SidebarTitle() {
     <div>
       <div className="sidebar-title">
         {t("app.title")}
-        <div className="sidebar-subtitle">{t("app.subtitle")}</div>
+        {/* <div className="sidebar-subtitle">{t("app.subtitle")}</div> */}
       </div>
     </div>
   );

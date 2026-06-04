@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Modal, message } from "antd";
+import { Modal, message, Splitter } from "antd";
 import "./App.css";
 import SidebarTitle from "./components/SidebarTitle";
 import SidebarBody from "./components/SidebarBody";
@@ -45,28 +45,39 @@ export default function App() {
   return (
     <main className="app-root">
       {contextHolder}
-      <aside className="sidebar">
-        <SidebarTitle />
-        <SidebarBody
-          onSelectDs={setSelectedDsName}
-          onNewQuery={(ctx) => setDbChatToOpen(ctx)}
-        />
-      </aside>
+      <Splitter
+        style={{ height: "100%" }}
+        layout="horizontal"
+        className="app-splitter"
+        collapsible={{ motion: true }}
+      >
+        <Splitter.Panel defaultSize="15%" min="200px" max="20%" collapsible>
+          <aside className="sidebar">
+            <SidebarTitle />
+            <SidebarBody
+              onSelectDs={setSelectedDsName}
+              onNewQuery={(ctx) => setDbChatToOpen(ctx)}
+            />
+          </aside>
+        </Splitter.Panel>
 
-      <section className="content">
-        <StatusBar
-          onSettingsClick={() => setSettingsOpen(true)}
-          onOpenDocs={() =>
-            openDocsFolder(selectedDsName ?? undefined).catch((e) =>
-              messageApi.error(String(e)),
-            )
-          }
-        />
-        <ContentBody
-          dbChatToOpen={dbChatToOpen}
-          onDbChatOpened={() => setDbChatToOpen(null)}
-        />
-      </section>
+        <Splitter.Panel>
+          <section className="content">
+            <StatusBar
+              onSettingsClick={() => setSettingsOpen(true)}
+              onOpenDocs={() =>
+                openDocsFolder(selectedDsName ?? undefined).catch((e) =>
+                  messageApi.error(String(e)),
+                )
+              }
+            />
+            <ContentBody
+              dbChatToOpen={dbChatToOpen}
+              onDbChatOpened={() => setDbChatToOpen(null)}
+            />
+          </section>
+        </Splitter.Panel>
+      </Splitter>
 
       <Modal
         title={t("settings.modalTitle")}

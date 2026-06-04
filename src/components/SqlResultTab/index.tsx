@@ -425,15 +425,17 @@ export default function SqlResultTab({
                 </Button>
               </Popover>
             </div>
-            <Table<TableRow>
-              size="small"
-              columns={tableColumns}
-              dataSource={processedData}
-              pagination={false}
-              onChange={handleTableChange}
-              locale={{ emptyText: t("workspace.emptyResult") }}
-              scroll={{ x: "max-content" }}
-            />
+            <div className="sql-result-table-wrapper">
+              <Table<TableRow>
+                size="small"
+                columns={tableColumns}
+                dataSource={processedData}
+                pagination={false}
+                onChange={handleTableChange}
+                locale={{ emptyText: t("workspace.emptyResult") }}
+                scroll={{ x: "max-content" }}
+              />
+            </div>
           </>
         )}
       </section>
