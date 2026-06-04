@@ -1,5 +1,9 @@
 # TQL — Text Query Language
 
+<p align="center">
+  <img src="./docs/logo.png" alt="TQL Logo" width="128" />
+</p>
+
 [English](README.md)
 
 TQL 是一款基于 Tauri 2、React 19 和 Ant Design 6 构建的跨平台桌面数据库查询工具。它提供统一界面来查询和管理多种数据源（MySQL、Redis、Elasticsearch 等），集成 AI 助手和系统设置面板，并通过应用级快捷键操控。
