@@ -170,55 +170,63 @@ pub async fn execute_query(
 ) -> Result<QueryResult, String> {
     let mut conn = connect_with_db(config, database).await?;
 
-    // Execute the query — query_iter consumes the connection
-    let mut result = conn
-        .query_iter(sql)
-        .await
-        .map_err(|e| format!("Query execution failed: {e}"))?;
+    // Scope the query result so it's dropped before we disconnect
+    let (columns, rows, row_count) = {
+        let mut result = conn
+            .query_iter(sql)
+            .await
+            .map_err(|e| format!("Query execution failed: {e}"))?;
 
-    // Extract column metadata
-    let columns: Vec<ColumnInfo> = result
-        .columns_ref()
-        .iter()
-        .map(|col| ColumnInfo {
-            name: col.name_str().into_owned(),
-            col_type: format!("{:?}", col.column_type()),
-            nullable: false,
-            key: String::new(),
-            default: None,
-        })
-        .collect();
-
-    // Iterate rows, respecting max_rows
-    let mut rows: Vec<Vec<serde_json::Value>> = Vec::new();
-    while let Some(row) = result
-        .next()
-        .await
-        .map_err(|e| format!("Failed to read row: {e}"))?
-    {
-        let values: Vec<serde_json::Value> = (0..row.len())
-            .map(|i| {
-                row.as_ref(i)
-                    .map(value_to_json)
-                    .unwrap_or(serde_json::Value::Null)
+        // Extract column metadata
+        let columns: Vec<ColumnInfo> = result
+            .columns_ref()
+            .iter()
+            .map(|col| ColumnInfo {
+                name: col.name_str().into_owned(),
+                col_type: format!("{:?}", col.column_type()),
+                nullable: false,
+                key: String::new(),
+                default: None,
             })
             .collect();
-        rows.push(values);
 
-        if rows.len() >= max_rows as usize {
-            break;
+        // Iterate rows, respecting max_rows
+        let mut rows: Vec<Vec<serde_json::Value>> = Vec::new();
+        while let Some(row) = result
+            .next()
+            .await
+            .map_err(|e| format!("Failed to read row: {e}"))?
+        {
+            let values: Vec<serde_json::Value> = (0..row.len())
+                .map(|i| {
+                    row.as_ref(i)
+                        .map(value_to_json)
+                        .unwrap_or(serde_json::Value::Null)
+                })
+                .collect();
+            rows.push(values);
+
+            if rows.len() >= max_rows as usize {
+                break;
+            }
         }
-    }
 
-    let row_count = rows.len();
+        let row_count = rows.len();
 
-    // Drain remaining rows so the connection can close cleanly
-    while result
-        .next()
-        .await
-        .map_err(|e| format!("Failed to drain rows: {e}"))?
-        .is_some()
-    {}
+        // Drain remaining rows so the connection can close cleanly
+        while result
+            .next()
+            .await
+            .map_err(|e| format!("Failed to drain rows: {e}"))?
+            .is_some()
+        {}
+
+        (columns, rows, row_count)
+    }; // ← result dropped here, releasing the mutable borrow on conn
+
+    // Explicitly close the connection — all other functions do this,
+    // and relying on Drop alone risks leaving connections open on error paths.
+    conn.disconnect().await.ok();
 
     Ok(QueryResult {
         columns,
