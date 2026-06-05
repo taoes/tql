@@ -3,7 +3,7 @@
 // Ref: https://api-docs.deepseek.com/api/create-chat-completion
 // ============================================================
 
-import type { ChatMessage } from "../types";
+import type { ChatMessage, ToolDefinition } from "../types";
 
 /** Parameters for a chat completion request body */
 export interface ChatCompletionRequest {
@@ -16,13 +16,14 @@ export interface ChatCompletionRequest {
   presence_penalty?: number;
   stop?: string | string[];
   stream?: boolean;
+  tools?: ToolDefinition[];
 }
 
 /** A single choice in a non-streaming completion response */
 export interface ChatCompletionChoice {
   index: number;
   message: ChatMessage;
-  finish_reason: "stop" | "length" | "content_filter" | null;
+  finish_reason: "stop" | "length" | "content_filter" | "tool_calls" | null;
 }
 
 /** Token usage info */
@@ -42,18 +43,30 @@ export interface ChatCompletionResponse {
   usage: ChatUsage;
 }
 
+/** Tool call delta in streaming */
+export interface ToolCallDelta {
+  index: number;
+  id?: string;
+  type?: "function";
+  function?: {
+    name?: string;
+    arguments?: string;
+  };
+}
+
 /** Delta content in a streaming chunk */
 export interface StreamDelta {
   role?: string;
   content?: string;
   reasoning_content?: string;
+  tool_calls?: ToolCallDelta[];
 }
 
 /** A single choice in a streaming chunk */
 export interface StreamChoice {
   index: number;
   delta: StreamDelta;
-  finish_reason: "stop" | "length" | "content_filter" | null;
+  finish_reason: "stop" | "length" | "content_filter" | "tool_calls" | null;
 }
 
 /** A single streaming SSE chunk */

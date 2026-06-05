@@ -1,5 +1,5 @@
-import type { AIServiceConfig, StreamCallbacks, ChatMessage } from "../types";
-import type { ChatCompletionRequest, ChatCompletionChunk } from "./types";
+import type { AIServiceConfig, StreamCallbacks, ChatMessage, ToolDefinition, ParsedToolCall, ToolCall } from "../types";
+import type { ChatCompletionRequest, ChatCompletionChunk, ToolCallDelta } from "./types";
 import { combineSignals } from "../utils";
 
 // ============================================================
@@ -29,8 +29,9 @@ function buildBody(
   config: AIServiceConfig,
   messages: ChatMessage[],
   stream: boolean,
+  tools?: ToolDefinition[],
 ): ChatCompletionRequest {
-  return {
+  const body: ChatCompletionRequest = {
     model: config.model,
     messages,
     temperature: config.temperature,
@@ -38,18 +39,24 @@ function buildBody(
     top_p: config.topP,
     stream,
   };
+  if (tools && tools.length > 0) {
+    body.tools = tools;
+  }
+  return body;
 }
 
 /**
  * Streaming chat completion via SSE for OpenAI-compatible APIs.
  *
  * Works with: DeepSeek, OpenAI, and any OpenAI-compatible endpoint.
+ * Supports function calling (tools).
  */
 export function streamChatCompletion(
   config: AIServiceConfig,
   messages: ChatMessage[],
   callbacks: StreamCallbacks,
   signal?: AbortSignal,
+  tools?: ToolDefinition[],
 ): AbortController {
   const controller = new AbortController();
 
@@ -59,9 +66,11 @@ export function streamChatCompletion(
     : controller.signal;
 
   const url = buildUrl(config.apiUrl);
-  const body = buildBody(config, messages, true);
+  const body = buildBody(config, messages, true, tools);
 
   let fullContent = "";
+  // Track tool call deltas by index
+  const toolCallDeltas = new Map<number, ToolCallDelta>();
 
   fetch(url, {
     method: "POST",
@@ -108,6 +117,19 @@ export function streamChatCompletion(
                 fullContent += choice.delta.content;
                 callbacks.onChunk(choice.delta.content);
               }
+              // Accumulate tool call deltas
+              if (choice.delta.tool_calls) {
+                for (const tc of choice.delta.tool_calls) {
+                  const existing = toolCallDeltas.get(tc.index);
+                  if (existing) {
+                    if (tc.id) existing.id = tc.id;
+                    if (tc.function?.name) existing.function = { ...existing.function, name: (existing.function?.name ?? "") + tc.function.name };
+                    if (tc.function?.arguments) existing.function = { ...existing.function, arguments: (existing.function?.arguments ?? "") + tc.function.arguments };
+                  } else {
+                    toolCallDeltas.set(tc.index, { ...tc });
+                  }
+                }
+              }
             }
           } catch {
             // Skip malformed JSON lines
@@ -126,11 +148,46 @@ export function streamChatCompletion(
                 fullContent += choice.delta.content;
                 callbacks.onChunk(choice.delta.content);
               }
+              if (choice.delta.tool_calls) {
+                for (const tc of choice.delta.tool_calls) {
+                  const existing = toolCallDeltas.get(tc.index);
+                  if (existing) {
+                    if (tc.function?.arguments) existing.function = { ...existing.function, arguments: (existing.function?.arguments ?? "") + tc.function.arguments };
+                  }
+                }
+              }
             }
           } catch {
             // ignore
           }
         }
+      }
+
+      // Build tool calls from accumulated deltas
+      if (toolCallDeltas.size > 0) {
+        const rawToolCalls: ToolCall[] = Array.from(toolCallDeltas.values())
+          .sort((a, b) => a.index - b.index)
+          .map((tc) => ({
+            id: tc.id ?? `call_${tc.index}`,
+            type: "function" as const,
+            function: {
+              name: tc.function?.name ?? "",
+              arguments: tc.function?.arguments ?? "{}",
+            },
+          }));
+
+        // Parse arguments and notify
+        const parsedCalls: ParsedToolCall[] = rawToolCalls.map((tc) => {
+          let args: Record<string, unknown> = {};
+          try {
+            args = JSON.parse(tc.function.arguments);
+          } catch {
+            // keep empty args
+          }
+          return { id: tc.id, name: tc.function.name, arguments: args };
+        });
+
+        callbacks.onToolCalls?.(parsedCalls);
       }
 
       callbacks.onComplete(fullContent);

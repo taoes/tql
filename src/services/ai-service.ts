@@ -1,4 +1,4 @@
-import type { AIService, AIServiceConfig, ChatMessage, StreamCallbacks } from "./types";
+import type { AIService, AIServiceConfig, ChatMessage, StreamCallbacks, ToolDefinition } from "./types";
 import { streamChatCompletion as openaiCompatibleStream } from "./deepseek/api";
 import { streamMessages as anthropicStream } from "./anthropic/api";
 
@@ -11,7 +11,7 @@ import { streamMessages as anthropicStream } from "./anthropic/api";
 //
 // Usage:
 //   const ai = createAIService(settings);
-//   const ctrl = ai.streamChat(messages, callbacks);
+//   const ctrl = ai.streamChat(messages, callbacks, signal, tools);
 // ============================================================
 
 /**
@@ -19,7 +19,7 @@ import { streamMessages as anthropicStream } from "./anthropic/api";
  *
  * Currently supported providers:
  * - OpenAI / DeepSeek / local (OpenAI-compatible SSE)
- * - Anthropic (placeholder — not yet implemented)
+ * - Anthropic
  */
 export function createAIService(config: AIServiceConfig): AIService {
   const provider = config.provider as string;
@@ -30,15 +30,25 @@ export function createAIService(config: AIServiceConfig): AIService {
     case "local":
       // All use the OpenAI-compatible SSE protocol
       return {
-        streamChat(messages: ChatMessage[], callbacks: StreamCallbacks, signal?: AbortSignal,): AbortController {
-          return openaiCompatibleStream(config, messages, callbacks, signal);
+        streamChat(
+          messages: ChatMessage[],
+          callbacks: StreamCallbacks,
+          signal?: AbortSignal,
+          tools?: ToolDefinition[],
+        ): AbortController {
+          return openaiCompatibleStream(config, messages, callbacks, signal, tools);
         },
       };
 
     case "anthropic":
       return {
-        streamChat(messages: ChatMessage[], callbacks: StreamCallbacks, signal?: AbortSignal): AbortController {
-          return anthropicStream(config, messages, callbacks, signal);
+        streamChat(
+          messages: ChatMessage[],
+          callbacks: StreamCallbacks,
+          signal?: AbortSignal,
+          tools?: ToolDefinition[],
+        ): AbortController {
+          return anthropicStream(config, messages, callbacks, signal, tools);
         },
       };
 
@@ -48,6 +58,7 @@ export function createAIService(config: AIServiceConfig): AIService {
           _messages: ChatMessage[],
           callbacks: StreamCallbacks,
           _signal?: AbortSignal,
+          _tools?: ToolDefinition[],
         ): AbortController {
           const controller = new AbortController();
           setTimeout(() => {

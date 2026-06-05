@@ -2,6 +2,16 @@
 // Anthropic Messages API — wire-format types
 // ============================================================
 
+// ── Tool types (Anthropic format) ─────────────────────────────
+
+export interface AnthropicToolDefinition {
+  name: string;
+  description: string;
+  input_schema: Record<string, unknown>;
+}
+
+// ── Request types ─────────────────────────────────────────────
+
 /** Request body for the Anthropic Messages API */
 export interface AnthropicMessageRequest {
   model: string;
@@ -11,12 +21,19 @@ export interface AnthropicMessageRequest {
   temperature?: number;
   top_p?: number;
   stream?: boolean;
+  tools?: AnthropicToolDefinition[];
 }
 
 export interface AnthropicRequestMessage {
   role: "user" | "assistant";
-  content: string;
+  content: string | AnthropicContentBlock[];
 }
+
+export type AnthropicContentBlock =
+  | TextBlock
+  | ThinkingBlock
+  | ToolUseBlock
+  | ToolResultBlock;
 
 // ── Content block types ──────────────────────────────────────
 
@@ -28,6 +45,19 @@ export interface TextBlock {
 export interface ThinkingBlock {
   type: "thinking";
   thinking: string;
+}
+
+export interface ToolUseBlock {
+  type: "tool_use";
+  id: string;
+  name: string;
+  input: Record<string, unknown>;
+}
+
+export interface ToolResultBlock {
+  type: "tool_result";
+  tool_use_id: string;
+  content: string;
 }
 
 // ── Delta types ──────────────────────────────────────────────
@@ -42,13 +72,18 @@ export interface ThinkingDelta {
   thinking: string;
 }
 
+export interface InputJsonDelta {
+  type: "input_json_delta";
+  partial_json: string;
+}
+
 // ── Non-streaming response ──────────────────────────────────
 
 export interface AnthropicMessage {
   id: string;
   type: "message";
   role: "assistant";
-  content: TextBlock[];
+  content: AnthropicContentBlock[];
   model: string;
   stop_reason: string | null;
   stop_sequence: string | null;
@@ -75,13 +110,13 @@ export interface MessageStopEvent {
 export interface ContentBlockStartEvent {
   type: "content_block_start";
   index: number;
-  content_block: TextBlock | ThinkingBlock;
+  content_block: TextBlock | ThinkingBlock | ToolUseBlock;
 }
 
 export interface ContentBlockDeltaEvent {
   type: "content_block_delta";
   index: number;
-  delta: TextDelta | ThinkingDelta;
+  delta: TextDelta | ThinkingDelta | InputJsonDelta;
 }
 
 export interface ContentBlockStopEvent {

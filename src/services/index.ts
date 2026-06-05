@@ -13,4 +13,9 @@ export type {
   StreamCallbacks,
   AIServiceConfig,
   AIService,
+  ToolDefinition,
+  FunctionDefinition,
+  ToolCall,
+  ParsedToolCall,
+  ToolResult,
 } from "./types";

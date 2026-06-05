@@ -1,5 +1,5 @@
-import type { AIServiceConfig, StreamCallbacks, ChatMessage } from "../types";
-import type { AnthropicMessageRequest, AnthropicStreamEvent } from "./types";
+import type { AIServiceConfig, StreamCallbacks, ChatMessage, ToolDefinition, ParsedToolCall } from "../types";
+import type { AnthropicMessageRequest, AnthropicStreamEvent, AnthropicRequestMessage, AnthropicContentBlock, AnthropicToolDefinition } from "./types";
 import { combineSignals } from "../utils";
 
 // ============================================================
@@ -27,16 +27,40 @@ function buildHeaders(apiKey: string): HeadersInit {
  */
 interface ExtractedMessages {
   system: string | undefined;
-  messages: { role: "user" | "assistant"; content: string }[];
+  messages: AnthropicRequestMessage[];
 }
 
 function extractSystemPrompt(messages: ChatMessage[]): ExtractedMessages {
   const systemParts: string[] = [];
-  const rest: { role: "user" | "assistant"; content: string }[] = [];
+  const rest: AnthropicRequestMessage[] = [];
 
   for (const msg of messages) {
     if (msg.role === "system") {
       systemParts.push(msg.content);
+    } else if (msg.role === "tool") {
+      // Tool result → convert to tool_result block
+      rest.push({
+        role: "user",
+        content: [
+          {
+            type: "tool_result",
+            tool_use_id: msg.tool_call_id ?? "",
+            content: msg.content,
+          },
+        ],
+      });
+    } else if (msg.role === "assistant" && msg.tool_calls && msg.tool_calls.length > 0) {
+      // Assistant message with tool calls → convert to tool_use blocks
+      const blocks: AnthropicContentBlock[] = [];
+      if (msg.content) {
+        blocks.push({ type: "text", text: msg.content });
+      }
+      for (const tc of msg.tool_calls) {
+        let input: Record<string, unknown> = {};
+        try { input = JSON.parse(tc.function.arguments); } catch { /* keep empty */ }
+        blocks.push({ type: "tool_use", id: tc.id, name: tc.function.name, input });
+      }
+      rest.push({ role: "assistant", content: blocks });
     } else {
       rest.push({
         role: msg.role as "user" | "assistant",
@@ -51,16 +75,26 @@ function extractSystemPrompt(messages: ChatMessage[]): ExtractedMessages {
   };
 }
 
+/** Convert shared ToolDefinition to Anthropic format */
+function convertTools(tools: ToolDefinition[]): AnthropicToolDefinition[] {
+  return tools.map((t) => ({
+    name: t.function.name,
+    description: t.function.description,
+    input_schema: t.function.parameters,
+  }));
+}
+
 /** Build the Anthropic request body */
 function buildBody(
   config: AIServiceConfig,
   messages: ChatMessage[],
   stream: boolean,
+  tools?: ToolDefinition[],
 ): AnthropicMessageRequest {
   const { system, messages: anthropicMessages } =
     extractSystemPrompt(messages);
 
-  return {
+  const body: AnthropicMessageRequest = {
     model: config.model,
     max_tokens: config.maxTokens || 4096,
     ...(system ? { system } : {}),
@@ -69,16 +103,24 @@ function buildBody(
     top_p: config.topP,
     stream,
   };
+
+  if (tools && tools.length > 0) {
+    body.tools = convertTools(tools);
+  }
+
+  return body;
 }
 
 /**
  * Streaming chat completion via the Anthropic Messages API (SSE).
+ * Supports tool use.
  */
 export function streamMessages(
   config: AIServiceConfig,
   messages: ChatMessage[],
   callbacks: StreamCallbacks,
   signal?: AbortSignal,
+  tools?: ToolDefinition[],
 ): AbortController {
   const controller = new AbortController();
   const mergedSignal = signal
@@ -86,9 +128,11 @@ export function streamMessages(
     : controller.signal;
 
   const url = buildUrl(config.apiUrl);
-  const body = buildBody(config, messages, true);
+  const body = buildBody(config, messages, true, tools);
 
   let fullContent = "";
+  // Track tool use blocks by index: { id, name, partial_json }
+  const toolUseBlocks = new Map<number, { id: string; name: string; partialJson: string }>();
 
   fetch(url, {
     method: "POST",
@@ -99,7 +143,6 @@ export function streamMessages(
     .then(async (response) => {
       if (!response.ok) {
         const errorText = await response.text().catch(() => "Unknown error");
-        // Try to extract Anthropic's structured error message
         try {
           const errorBody = JSON.parse(errorText);
           if (errorBody?.error?.message) {
@@ -153,7 +196,7 @@ export function streamMessages(
               );
             }
 
-            // content_block_start — first chunk of a content block
+            // content_block_start
             if (event.type === "content_block_start") {
               const block = event.content_block;
               if (block.type === "text" && block.text) {
@@ -161,10 +204,16 @@ export function streamMessages(
                 callbacks.onChunk(block.text);
               } else if (block.type === "thinking" && block.thinking) {
                 callbacks.onReasoning?.(block.thinking);
+              } else if (block.type === "tool_use") {
+                toolUseBlocks.set(event.index, {
+                  id: block.id,
+                  name: block.name,
+                  partialJson: "",
+                });
               }
             }
 
-            // content_block_delta — streaming delta
+            // content_block_delta
             if (event.type === "content_block_delta") {
               const delta = event.delta;
               if (delta.type === "text_delta" && delta.text) {
@@ -172,10 +221,14 @@ export function streamMessages(
                 callbacks.onChunk(delta.text);
               } else if (delta.type === "thinking_delta" && delta.thinking) {
                 callbacks.onReasoning?.(delta.thinking);
+              } else if (delta.type === "input_json_delta" && delta.partial_json) {
+                const existing = toolUseBlocks.get(event.index);
+                if (existing) {
+                  existing.partialJson += delta.partial_json;
+                }
               }
             }
           } catch (parseErr) {
-            // If we already threw a structured error above, re-throw
             if (
               parseErr instanceof Error &&
               parseErr.message.startsWith("Anthropic API error")
@@ -187,7 +240,7 @@ export function streamMessages(
         }
       }
 
-      // Flush remaining buffer (same as DeepSeek adapter)
+      // Flush remaining buffer
       if (buffer.trim() && buffer.trim().startsWith("data:")) {
         const data = buffer.trim().slice(5).trim();
         try {
@@ -197,11 +250,29 @@ export function streamMessages(
             if (delta.type === "text_delta" && delta.text) {
               fullContent += delta.text;
               callbacks.onChunk(delta.text);
+            } else if (delta.type === "input_json_delta" && delta.partial_json) {
+              const existing = toolUseBlocks.get(event.index);
+              if (existing) {
+                existing.partialJson += delta.partial_json;
+              }
             }
           }
         } catch {
           // ignore
         }
+      }
+
+      // Build parsed tool calls from tool_use blocks
+      if (toolUseBlocks.size > 0) {
+        const parsedCalls: ParsedToolCall[] = Array.from(toolUseBlocks.entries())
+          .sort(([a], [b]) => a - b)
+          .map(([_, tu]) => {
+            let args: Record<string, unknown> = {};
+            try { args = JSON.parse(tu.partialJson); } catch { /* keep empty */ }
+            return { id: tu.id, name: tu.name, arguments: args };
+          });
+
+        callbacks.onToolCalls?.(parsedCalls);
       }
 
       callbacks.onComplete(fullContent);

@@ -12,9 +12,10 @@ import {
 } from "@ant-design/icons";
 import { useTranslation } from "../../i18n";
 import { createAIService } from "../../services";
-import { useModelConfig } from "../../settings/SettingsContext";
-import type { ChatMessage, StreamCallbacks } from "../../services";
+import type { ChatMessage, ToolDefinition, ParsedToolCall } from "../../services";
+import { useModelConfig, useSettings } from "../../settings/SettingsContext";
 import { Button, Space, Alert, message, BorderBeam, Avatar } from "antd";
+import { listMysqlTables, listMysqlColumns, readDocument } from "../../db-api";
 import CodeBlock from "./CodeBlock";
 import "./index.css";
 
@@ -74,9 +75,58 @@ interface AIChatProps {
   databaseContext?: DbContext | null;
 }
 
+const MAX_TOOL_ROUNDS = 5;
+
+/** Build tool definitions based on the current database context */
+function buildTools(
+  databaseContext: DbContext | null | undefined,
+): ToolDefinition[] {
+  if (!databaseContext || databaseContext.dbType !== "mysql") return [];
+
+  return [
+    {
+      type: "function" as const,
+      function: {
+        name: "list_tables",
+        description: `列出当前数据库「${databaseContext.databaseName}」中的所有表。无需参数。`,
+        parameters: { type: "object", properties: {}, required: [] },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "get_table_schema",
+        description: `获取当前数据库「${databaseContext.databaseName}」中指定表的字段结构信息，包括字段名、类型、是否可空、键类型、默认值。`,
+        parameters: {
+          type: "object",
+          properties: {
+            tableName: { type: "string", description: "要查询的表名" },
+          },
+          required: ["tableName"],
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "get_table_document",
+        description: `获取当前数据库「${databaseContext.databaseName}」中指定表的技术文档（Markdown 格式），包含表的用途、字段详解、索引分析、关联关系和使用注意事项。`,
+        parameters: {
+          type: "object",
+          properties: {
+            tableName: { type: "string", description: "要查询文档的表名" },
+          },
+          required: ["tableName"],
+        },
+      },
+    },
+  ];
+}
+
 export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
   const t = useTranslation();
   const modelConfig = useModelConfig();
+  const { settings } = useSettings();
   const [messageApi, msgCtx] = message.useMessage();
 
   const [messages, setMessages] = useState<Message[]>(() => [
@@ -143,19 +193,204 @@ export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
       prompt += `\n- 类型: ${databaseContext.dbType === "mysql" ? "MySQL" : "Redis"}`;
 
       if (databaseContext.dbType === "mysql") {
-        if (docContent) {
-          prompt += `\n\n## 数据库文档（已生成）`;
-          prompt += `\n以下是该数据库的完整技术文档，请基于此文档理解表结构、字段含义和表关系，在生成 SQL 时充分利用索引和表关系进行优化。记住：当用户要求增删改查时，使用 \`\`\`sql 代码块包裹 SQL 语句进行输出，不要加任何解释：\n`;
-          prompt += `\n${docContent}`;
-        } else {
-          prompt += `\n\n## 数据库文档`;
-          prompt += `\n⚠️ 该数据库的文档信息不存在，尚未初始化。如需了解表结构、字段含义和表关系，请使用左侧数据源树的右键菜单「生成文档」功能先生成一份技术文档。`;
-          prompt += `\n\n在此期间，请基于数据库名称和常见的命名规范推断表结构，回答用户的问题。如果用户询问具体表结构或字段信息，建议用户先生成文档。`;
-        }
+        prompt += `\n\n## 可用工具`;
+        prompt += `\n你可以使用以下工具来查询数据库信息：`;
+        prompt += `\n- \`list_tables\`: 列出当前数据库中的所有表`;
+        prompt += `\n- \`get_table_schema\`: 获取指定表的字段结构（字段名、类型、键、默认值等）`;
+        prompt += `\n- \`get_table_document\`: 获取指定表的技术文档（Markdown 格式，包含用途、字段详解、索引分析等）`;
+        prompt += `\n\n在回答用户问题前，优先使用工具获取真实的表结构和文档信息，而不是猜测。`;
       }
     }
     return prompt;
   }, [t, databaseContext, docContent]);
+
+  /** Resolve DataSourceConfig from settings by name */
+  const resolveDataSource = useCallback(
+    (datasourceName: string) =>
+      settings?.datasource.connections.find((c) => c.name === datasourceName) ?? null,
+    [settings],
+  );
+
+  /**
+   * Execute tool calls and return result messages.
+   * Each tool call produces one ChatMessage with role "tool".
+   */
+  const executeTools = useCallback(
+    async (toolCalls: ParsedToolCall[]): Promise<ChatMessage[]> => {
+      if (!databaseContext) return [];
+
+      const results: ChatMessage[] = [];
+      const ds = resolveDataSource(databaseContext.datasourceName);
+
+      for (const tc of toolCalls) {
+        let content = "";
+        try {
+          switch (tc.name) {
+            case "list_tables": {
+              if (!ds) { content = "错误：无法获取数据源配置"; break; }
+              const tables = await listMysqlTables(ds, databaseContext.databaseName);
+              content = tables.length > 0
+                ? `数据库「${databaseContext.databaseName}」中的表：\n${tables.map((t) => `- ${t}`).join("\n")}`
+                : `数据库「${databaseContext.databaseName}」中没有任何表。`;
+              break;
+            }
+            case "get_table_schema": {
+              if (!ds) { content = "错误：无法获取数据源配置"; break; }
+              const tableName = tc.arguments.tableName as string;
+              if (!tableName) { content = "错误：缺少 tableName 参数"; break; }
+              const cols = await listMysqlColumns(ds, databaseContext.databaseName, tableName);
+              if (cols.length === 0) {
+                content = `表「${tableName}」不存在或没有字段。`;
+              } else {
+                const rows = cols.map((c) =>
+                  `- ${c.name} | ${c.colType} | ${c.nullable ? "可空" : "NOT NULL"} | 键:${c.key || "-"} | 默认:${c.default ?? "-"}`,
+                );
+                content = `表「${tableName}」的字段结构：\n${rows.join("\n")}`;
+              }
+              break;
+            }
+            case "get_table_document": {
+              const tableName = tc.arguments.tableName as string;
+              if (!tableName) { content = "错误：缺少 tableName 参数"; break; }
+              try {
+                const doc = await readDocument(databaseContext.datasourceName, databaseContext.databaseName, tableName);
+                content = `表「${tableName}」的技术文档：\n\n${doc}`;
+              } catch {
+                content = `表「${tableName}」的文档尚未生成。建议用户在左侧表节点上右键选择「编辑文档」来生成。`;
+              }
+              break;
+            }
+            default:
+              content = `未知工具: ${tc.name}`;
+          }
+        } catch (e) {
+          content = `工具调用失败: ${e}`;
+        }
+        results.push({
+          role: "tool",
+          tool_call_id: tc.id,
+          content,
+        });
+      }
+      return results;
+    },
+    [databaseContext, resolveDataSource],
+  );
+
+  /**
+   * Core chat loop: sends messages to AI, handles tool calls recursively.
+   * Updates the aiKey message in-place with final content.
+   */
+  const runChatLoop = useCallback(
+    async (
+      apiMessages: ChatMessage[],
+      aiKey: string,
+      round: number = 0,
+    ): Promise<void> => {
+      if (round >= MAX_TOOL_ROUNDS) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.key === aiKey
+              ? { ...m, content: m.content + "\n\n⚠️ 已达到最大工具调用次数限制。" }
+              : m,
+          ),
+        );
+        setStreaming(false);
+        setStreamingKey(null);
+        abortRef.current = null;
+        return;
+      }
+
+      const ai = createAIService(modelConfig);
+      const tools = buildTools(databaseContext);
+      let fullContent = "";
+      let toolCallsReceived: ParsedToolCall[] = [];
+
+      return new Promise<void>((resolve) => {
+        const controller = ai.streamChat(
+          apiMessages,
+          {
+            onChunk(content) {
+              fullContent += content;
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.key === aiKey ? { ...m, content: m.content + content } : m,
+                ),
+              );
+            },
+            onToolCalls(toolCalls) {
+              toolCallsReceived = toolCalls;
+            },
+            async onComplete(_completeContent) {
+              if (toolCallsReceived.length > 0) {
+                const toolCallList = toolCallsReceived
+                  .map((tc) => `  🔧 \`${tc.name}(${JSON.stringify(tc.arguments)})\``)
+                  .join("\n");
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.key === aiKey
+                      ? { ...m, content: fullContent + "\n\n正在查询数据库...\n" + toolCallList }
+                      : m,
+                  ),
+                );
+
+                const toolResults = await executeTools(toolCallsReceived);
+
+                const assistantToolCalls = toolCallsReceived.map((tc) => ({
+                  id: tc.id,
+                  type: "function" as const,
+                  function: {
+                    name: tc.name,
+                    arguments: JSON.stringify(tc.arguments),
+                  },
+                }));
+
+                const updatedApiMessages: ChatMessage[] = [
+                  ...apiMessages,
+                  {
+                    role: "assistant",
+                    content: fullContent || "",
+                    tool_calls: assistantToolCalls,
+                  },
+                  ...toolResults,
+                ];
+
+                await runChatLoop(updatedApiMessages, aiKey, round + 1);
+                resolve();
+              } else {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.key === aiKey ? { ...m, content: fullContent } : m,
+                  ),
+                );
+                setStreaming(false);
+                setStreamingKey(null);
+                abortRef.current = null;
+                resolve();
+              }
+            },
+            onError(error) {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.key === aiKey
+                    ? { ...m, content: fullContent ? fullContent + `\n\n❌ ${error.message}` : `❌ ${error.message}` }
+                    : m,
+                ),
+              );
+              setStreaming(false);
+              setStreamingKey(null);
+              abortRef.current = null;
+              resolve();
+            },
+          },
+          undefined,
+          tools,
+        );
+        abortRef.current = controller;
+      });
+    },
+    [modelConfig, databaseContext, executeTools],
+  );
 
   /** Regenerate AI response for a user message */
   const handleRegenerate = useCallback(
@@ -185,43 +420,9 @@ export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
       setStreamingKey(aiKey);
       setStreaming(true);
 
-      const ai = createAIService(modelConfig);
-      const callbacks: StreamCallbacks = {
-        onChunk(content) {
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.key === aiKey ? { ...m, content: m.content + content } : m,
-            ),
-          );
-        },
-        onComplete(fullContent) {
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.key === aiKey ? { ...m, content: fullContent } : m,
-            ),
-          );
-          setStreaming(false);
-          setStreamingKey(null);
-          abortRef.current = null;
-        },
-        onError(error) {
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.key === aiKey
-                ? { ...m, content: `❌ ${error.message}` }
-                : m,
-            ),
-          );
-          setStreaming(false);
-          setStreamingKey(null);
-          abortRef.current = null;
-        },
-      };
-
-      const controller = ai.streamChat(apiMessages, callbacks);
-      abortRef.current = controller;
+      runChatLoop(apiMessages, aiKey);
     },
-    [streaming, messages, modelConfig, systemPrompt],
+    [streaming, messages, systemPrompt, runChatLoop],
   );
 
   /** Build chat messages array for the API (system prompt + history + new message) */
@@ -250,7 +451,6 @@ export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
   const handleSubmit = useCallback((text: string) => {
     if (!text.trim() || streaming) return;
 
-    // Require a data source to be selected before chatting
     if (!databaseContext) {
       messageApi.warning("请先在左侧选择一个数据源和数据库，然后右键选择新建查询");
       return;
@@ -259,16 +459,13 @@ export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
     const userKey = Date.now().toString();
     const aiKey = (Date.now() + 1).toString();
 
-    // Clear input immediately on submit
     setInputValue("");
 
-    // Add user message
     setMessages((prev) => [
       ...prev,
       { key: userKey, role: "user", content: text },
     ]);
 
-    // Add empty AI placeholder — fills in as chunks arrive
     setMessages((prev) => [
       ...prev,
       { key: aiKey, role: "assistant", content: "" },
@@ -276,46 +473,10 @@ export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
     setStreamingKey(aiKey);
     setStreaming(true);
 
-    // Provider-agnostic: AIChat doesn't know which model this is
-    const ai = createAIService(modelConfig);
     const apiMessages = buildApiMessages(text);
-
-    const callbacks: StreamCallbacks = {
-      onChunk(content) {
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.key === aiKey ? { ...m, content: m.content + content } : m,
-          ),
-        );
-      },
-      onComplete(fullContent) {
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.key === aiKey ? { ...m, content: fullContent } : m,
-          ),
-        );
-        setStreaming(false);
-        setStreamingKey(null);
-        abortRef.current = null;
-      },
-      onError(error) {
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.key === aiKey
-              ? { ...m, content: `❌ ${error.message}` }
-              : m,
-          ),
-        );
-        setStreaming(false);
-        setStreamingKey(null);
-        abortRef.current = null;
-      },
-    };
-
-    const controller = ai.streamChat(apiMessages, callbacks);
-    abortRef.current = controller;
+    runChatLoop(apiMessages, aiKey);
   },
-    [streaming, modelConfig, buildApiMessages, databaseContext, messageApi],
+    [streaming, buildApiMessages, databaseContext, messageApi, runChatLoop],
   );
 
   const handleClear = useCallback(() => {
