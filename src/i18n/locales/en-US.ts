@@ -20,7 +20,8 @@ const messages: Messages = {
     ctx: {
       refresh: "Refresh",
       copyName: "Copy name",
-      newQuery: "New query",
+      newQuery: "AI Query",
+      editDoc: "Edit Doc",
       viewDdl: "View DDL / schema",
     },
     msg: {
@@ -58,6 +59,19 @@ const messages: Messages = {
       "\\n6. **Output format rule**: When the user explicitly requests a CRUD operation (SELECT / INSERT / UPDATE / DELETE), output **only** the raw SQL statement wrapped in a \\`\\`\\`sql code block — no explanations. When the user asks about database information, table structures, field meanings, or other non-operational questions, output text normally. Decision criteria: user intent is data manipulation → output SQL only; user intent is information inquiry → output text." +
       "\\n7. **LIMIT rule**: Every SELECT query **must** end with \\`LIMIT 50\\`. Even if the user doesn't specify a LIMIT, you must add it automatically. If the user explicitly specifies a LIMIT value, use the user's value instead.",
   },
+  docEditor: {
+    title: "Table Doc",
+    save: "Save",
+    saved: "Document saved",
+    saveFailed: "Save failed",
+    regenerate: "Regenerate",
+    regenerating: "Regenerating...",
+    generate: "AI Generate",
+    generating: "Generating document...",
+    noContent: "No document yet. Click \"AI Generate\" to create one via AI, or edit Markdown directly here.",
+    regenerateTip: "Regenerate based on current doc and table schema, preserving user's manual constraints",
+    saveSuccess: "Document saved to {path}",
+  },
   workspace: {
     aiTab: "AI Chat",
     sqlTab: "SQL Result {n}",
@@ -65,8 +79,9 @@ const messages: Messages = {
     resultSection: "Execution result",
     rowsAffected: "{n} rows returned",
     emptyResult: "No result",
-    edit: "Edit",
     confirm: "Confirm",
+    cancel: "Cancel",
+    doubleClickToEdit: "Double-click to edit SQL",
     copy: "Copy",
     export: "Export",
     execute: "Execute",

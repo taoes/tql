@@ -67,28 +67,33 @@ export async function listMysqlColumns(
 }
 
 /**
- * Read a previously generated document from ~/.config/tql/docs/<datasource>/<database>.md.
+ * Read a previously generated table-level document from
+ * ~/.config/tql/{datasource}/{database}/{table}.md.
  * Returns the file content, or throws if not found.
  */
 export async function readDocument(
   datasourceName: string,
   database: string,
+  tableName: string,
 ): Promise<string> {
-  return invoke<string>("read_document", { datasourceName, database });
+  return invoke<string>("read_document", { datasourceName, database, tableName });
 }
 
 /**
- * Save a generated document to ~/.config/tql/docs/<datasource>/<database>.md.
+ * Save a generated table-level document to
+ * ~/.config/tql/{datasource}/{database}/{table}.md.
  * Returns the saved file path on success.
  */
 export async function saveDocument(
   datasourceName: string,
   database: string,
+  tableName: string,
   content: string,
 ): Promise<string> {
   return invoke<string>("save_document", {
     datasourceName,
     database,
+    tableName,
     content,
   });
 }
@@ -109,11 +114,16 @@ export async function renameDocumentFolder(
 
 /**
  * Open the docs folder in the system file manager.
- * Opens the data-source-specific subfolder if `datasourceName` is provided.
+ * Opens the data-source-specific subfolder if `datasourceName` is provided,
+ * or the database subfolder if both `datasourceName` and `database` are provided.
  */
-export async function openDocsFolder(datasourceName?: string): Promise<void> {
+export async function openDocsFolder(
+  datasourceName?: string,
+  database?: string,
+): Promise<void> {
   return invoke("open_docs_folder", {
     datasourceName: datasourceName ?? null,
+    database: database ?? null,
   });
 }
 

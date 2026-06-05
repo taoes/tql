@@ -116,44 +116,49 @@ fn save_settings(settings: serde_json::Value) -> Result<(), String> {
 // ── Document generation ─────────────────────────────────────────
 
 /// Read a previously saved documentation file.
-/// Returns the file content, or an error if not found.
+/// Read a previously generated table-level document.
+/// Path: ~/.config/tql/{datasource}/{database}/{table}.md
 #[tauri::command]
 fn read_document(
     datasource_name: String,
     database: String,
+    table_name: String,
 ) -> Result<String, String> {
     let home = std::env::var("HOME").map_err(|e| format!("无法读取 HOME: {e}"))?;
     let path = PathBuf::from(home)
         .join(".config")
         .join("tql")
-        .join("docs")
         .join(&datasource_name)
-        .join(format!("{}.md", database));
+        .join(&database)
+        .join(format!("{}.md", table_name));
     std::fs::read_to_string(&path)
         .map_err(|e| format!("读取文档失败 {}: {e}", path.display()))
 }
 
+/// Save a generated table-level document.
+/// Path: ~/.config/tql/{datasource}/{database}/{table}.md
 #[tauri::command]
 fn save_document(
     datasource_name: String,
     database: String,
+    table_name: String,
     content: String,
 ) -> Result<String, String> {
     let home = std::env::var("HOME").map_err(|e| format!("无法读取 HOME: {e}"))?;
     let dir = PathBuf::from(home)
         .join(".config")
         .join("tql")
-        .join("docs")
-        .join(&datasource_name);
+        .join(&datasource_name)
+        .join(&database);
     std::fs::create_dir_all(&dir)
         .map_err(|e| format!("创建文档目录失败: {e}"))?;
-    let path = dir.join(format!("{}.md", database));
+    let path = dir.join(format!("{}.md", table_name));
     std::fs::write(&path, &content)
         .map_err(|e| format!("写入文档失败: {e}"))?;
     Ok(path.to_string_lossy().to_string())
 }
 
-/// Rename the docs folder when a data source is renamed.
+/// Rename the datasource folder under ~/.config/tql when a data source is renamed.
 /// If the old folder doesn't exist, this is a no-op (returns Ok).
 #[tauri::command]
 fn rename_document_folder(
@@ -161,7 +166,7 @@ fn rename_document_folder(
     new_name: String,
 ) -> Result<(), String> {
     let home = std::env::var("HOME").map_err(|e| format!("无法读取 HOME: {e}"))?;
-    let base = PathBuf::from(home).join(".config").join("tql").join("docs");
+    let base = PathBuf::from(home).join(".config").join("tql");
     let old_path = base.join(&old_name);
     let new_path = base.join(&new_name);
 
@@ -174,12 +179,19 @@ fn rename_document_folder(
 
 /// Open the docs folder in the system file manager.
 /// If `datasource_name` is provided, opens that data source's subfolder.
+/// If both `datasource_name` and `database` are provided, opens the database subfolder.
 #[tauri::command]
-fn open_docs_folder(datasource_name: Option<String>) -> Result<(), String> {
+fn open_docs_folder(
+    datasource_name: Option<String>,
+    database: Option<String>,
+) -> Result<(), String> {
     let home = std::env::var("HOME").map_err(|e| format!("无法读取 HOME: {e}"))?;
-    let mut path = PathBuf::from(home).join(".config").join("tql").join("docs");
+    let mut path = PathBuf::from(home).join(".config").join("tql");
     if let Some(name) = &datasource_name {
         path = path.join(name);
+        if let Some(db) = &database {
+            path = path.join(db);
+        }
     }
     // Create the directory if it doesn't exist yet
     std::fs::create_dir_all(&path).ok();

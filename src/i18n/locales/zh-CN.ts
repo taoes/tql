@@ -18,7 +18,8 @@ const raw = {
     ctx: {
       refresh: "刷新",
       copyName: "复制名称",
-      newQuery: "新建查询",
+      newQuery: "AI 查询",
+      editDoc: "编辑文档",
       viewDdl: "查看 DDL/结构",
     },
     msg: {
@@ -56,6 +57,19 @@ const raw = {
       "\\n6. **输出格式规则**：当用户明确要求执行增删改查操作（SELECT / INSERT / UPDATE / DELETE）时，你**只能**输出纯 SQL 语句，使用 \\`\\`\\`sql 代码块包裹 SQL 语句，不要添加任何解释或说明。当用户询问数据库信息、表结构、字段含义等非操作性问题时，正常输出文字说明。判断标准：用户意图是操作数据 → 只输出 SQL；用户意图是了解信息 → 输出文字。" +
       "\\n7. **LIMIT 规则**：所有 SELECT 查询语句末尾**必须**加上 \\`LIMIT 50\\`。即使用户没有指定 LIMIT，你也要自动补上。如果用户明确指定了 LIMIT 数量，则使用用户指定的值。",
   },
+  docEditor: {
+    title: "表文档",
+    save: "保存",
+    saved: "文档已保存",
+    saveFailed: "保存失败",
+    regenerate: "重新生成",
+    regenerating: "正在重新生成...",
+    generate: "AI 生成",
+    generating: "正在生成文档...",
+    noContent: "暂无文档，点击「AI 生成」通过 AI 创建，或直接在此编辑 Markdown 内容。",
+    regenerateTip: "基于当前文档和表结构重新生成，用户手动修改的硬性条件将被保留",
+    saveSuccess: "文档已保存至 {path}",
+  },
   workspace: {
     aiTab: "AI 对话",
     sqlTab: "SQL 结果 {n}",
@@ -63,8 +77,9 @@ const raw = {
     resultSection: "执行结果",
     rowsAffected: "返回 {n} 行",
     emptyResult: "暂无结果",
-    edit: "编辑",
     confirm: "确认",
+    cancel: "取消",
+    doubleClickToEdit: "双击编辑 SQL 语句",
     copy: "复制",
     export: "导出",
     execute: "执行",

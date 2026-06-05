@@ -20,7 +20,8 @@ const messages: Messages = {
     ctx: {
       refresh: "重新整理",
       copyName: "複製名稱",
-      newQuery: "新增查詢",
+      newQuery: "AI 查詢",
+      editDoc: "編輯文件",
       viewDdl: "檢視 DDL/結構",
     },
     msg: {
@@ -57,6 +58,19 @@ const messages: Messages = {
       "\\n5. 如果使用者的問題不夠明確，請主動詢問其資料庫結構或具體意圖。" +
       "\\n6. **LIMIT 規則**：所有 SELECT 查詢語句末尾**必須**加上 \\`LIMIT 50\\`。即使使用者沒有指定 LIMIT，你也要自動補上。如果使用者明確指定了 LIMIT 數量，則使用使用者指定的值。",
   },
+  docEditor: {
+    title: "表文件",
+    save: "儲存",
+    saved: "文件已儲存",
+    saveFailed: "儲存失敗",
+    regenerate: "重新產生",
+    regenerating: "正在重新產生...",
+    generate: "AI 產生",
+    generating: "正在產出文件...",
+    noContent: "尚無文件，點擊「AI 產生」透過 AI 建立，或直接在此編輯 Markdown 內容。",
+    regenerateTip: "基於當前文件和表結構重新產生，使用者手動修改的硬性條件將被保留",
+    saveSuccess: "文件已儲存至 {path}",
+  },
   workspace: {
     aiTab: "AI 對話",
     sqlTab: "SQL 結果 {n}",
@@ -64,8 +78,9 @@ const messages: Messages = {
     resultSection: "執行結果",
     rowsAffected: "回傳 {n} 列",
     emptyResult: "暫無結果",
-    edit: "編輯",
     confirm: "確認",
+    cancel: "取消",
+    doubleClickToEdit: "雙擊編輯 SQL 語句",
     copy: "複製",
     export: "匯出",
     execute: "執行",

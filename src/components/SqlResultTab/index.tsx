@@ -20,8 +20,8 @@ import { save } from "@tauri-apps/plugin-dialog";
 import type { DataSourceConfig } from "../../settings/types";
 import type { QueryResult, ColumnInfo } from "../../db-api";
 import {
-  EditOutlined,
   CheckOutlined,
+  CloseOutlined,
   CopyOutlined,
   ExportOutlined,
   PlayCircleOutlined,
@@ -337,19 +337,48 @@ export default function SqlResultTab({
               onChange={(e) => setEditSql(e.target.value)}
               className="sql-result-textarea"
               autoSize={{ minRows: 3, maxRows: 12 }}
+              autoFocus
+              onKeyDown={(e) => {
+                // Escape → cancel editing, revert changes
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  setEditSql(sql);
+                  setEditing(false);
+                }
+              }}
             />
           ) : (
-            <pre className="sql-result-code">{editSql}</pre>
+            <pre
+              className="sql-result-code sql-result-code-clickable"
+              onDoubleClick={() => setEditing(true)}
+              title={t("workspace.doubleClickToEdit")}
+            >
+              {editSql}
+            </pre>
           )}
           <div className="sql-result-actions">
-            <Button
-              size="small"
-              type={editing ? "primary" : "default"}
-              icon={editing ? <CheckOutlined /> : <EditOutlined />}
-              onClick={() => setEditing(!editing)}
-            >
-              {editing ? t("workspace.confirm") : t("workspace.edit")}
-            </Button>
+            {editing && (
+              <>
+                <Button
+                  size="small"
+                  type="primary"
+                  icon={<CheckOutlined />}
+                  onClick={() => setEditing(false)}
+                >
+                  {t("workspace.confirm")}
+                </Button>
+                <Button
+                  size="small"
+                  icon={<CloseOutlined />}
+                  onClick={() => {
+                    setEditSql(sql);
+                    setEditing(false);
+                  }}
+                >
+                  {t("workspace.cancel")}
+                </Button>
+              </>
+            )}
             <Dropdown
               menu={{ items: copyMenuItems }}
               trigger={["click"]}

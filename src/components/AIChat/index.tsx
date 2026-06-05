@@ -5,7 +5,6 @@ import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import {
   ClearOutlined,
   WarningOutlined,
-  RobotOutlined,
   UserOutlined,
   CopyOutlined,
   PlayCircleOutlined,
@@ -16,7 +15,6 @@ import { createAIService } from "../../services";
 import { useModelConfig } from "../../settings/SettingsContext";
 import type { ChatMessage, StreamCallbacks } from "../../services";
 import { Button, Space, Alert, message, BorderBeam, Avatar } from "antd";
-import { readDocument } from "../../db-api";
 import CodeBlock from "./CodeBlock";
 import "./index.css";
 
@@ -119,22 +117,12 @@ export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
     setDocContent(null);
   }, [contextId]);
 
-  /** Load documentation when database context changes */
+  /** Load documentation when database context changes.
+   *  Note: docs are now table-level (~/.config/tql/{ds}/{db}/{table}.md).
+   *  There is no single database-level doc, so we skip auto-loading here.
+   *  Table-level docs are loaded on-demand when the AI queries a specific table. */
   useEffect(() => {
-    if (!databaseContext || databaseContext.dbType !== "mysql") {
-      setDocContent(null);
-      return;
-    }
-    let cancelled = false;
-    readDocument(databaseContext.datasourceName, databaseContext.databaseName)
-      .then((content) => {
-        if (!cancelled) setDocContent(content);
-      })
-      .catch(() => {
-        // Document not found — that's OK, we'll tell the AI
-        if (!cancelled) setDocContent(null);
-      });
-    return () => { cancelled = true; };
+    setDocContent(null);
   }, [databaseContext?.datasourceName, databaseContext?.databaseName, databaseContext?.dbType]);
 
   // Auto-scroll to bottom when messages change
@@ -470,7 +458,7 @@ export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
               avatar={
                 isAssistant ? (
                   <Avatar
-                    icon={<RobotOutlined />}
+                    src="/logo-32.png"
                     style={{ backgroundColor: "#1677ff" }}
                   />
                 ) : (

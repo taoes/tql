@@ -59,6 +59,16 @@
   overflow: auto;
 }
 
+.sql-result-code-clickable {
+  cursor: pointer;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.sql-result-code-clickable:hover {
+  border-color: var(--color-primary, #1677ff);
+  background: var(--color-muted, rgba(0, 0, 0, 0.02));
+}
+
 .sql-result-textarea {
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace) !important;
   font-size: 12.5px !important;
