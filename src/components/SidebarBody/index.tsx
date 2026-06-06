@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { Button, Menu, Select, Tree, Typography, message, Spin, Tag, Tooltip } from "antd";
+import { Button, Menu, Select, Tree, Typography, message, Spin, Tag, Tooltip, Modal, Checkbox, Input } from "antd";
 import { createPortal } from "react-dom";
 import type { DataNode } from "antd/es/tree";
 import {
@@ -20,6 +20,9 @@ import {
   FileOutlined,
   UnorderedListOutlined,
   KeyOutlined,
+  SearchOutlined,
+  TableOutlined,
+  InboxOutlined,
 } from "@ant-design/icons";
 import type { MenuProps } from "antd";
 import { useTranslation } from "../../i18n";
@@ -131,7 +134,7 @@ function SidebarBody({
   onEditTableDoc?: (params: { datasourceName: string; dbName: string; tableName: string; dataSourceConfig: DataSourceConfig }) => void;
 }) {
   const t = useTranslation();
-  const { settings } = useSettings();
+  const { settings, save } = useSettings();
   const connections = settings?.datasource?.connections ?? [];
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -140,6 +143,30 @@ function SidebarBody({
   const [ctxMenu, setCtxMenu] = useState<ContextState | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [messageApi, contextHolder] = message.useMessage();
+
+  // ── Select tables modal ──────────────────────────────────────
+  const [selectTablesOpen, setSelectTablesOpen] = useState(false);
+  const [selectTablesDb, setSelectTablesDb] = useState<string>("");
+  const [selectTablesAll, setSelectTablesAll] = useState<string[]>([]);
+  const [selectTablesChecked, setSelectTablesChecked] = useState<string[]>([]);
+  const [selectTablesLoading, setSelectTablesLoading] = useState(false);
+  const [selectTablesSearch, setSelectTablesSearch] = useState("");
+
+  /** Tables filtered by search keyword */
+  const selectTablesFiltered = useMemo(() => {
+    if (!selectTablesSearch.trim()) return selectTablesAll;
+    const kw = selectTablesSearch.trim().toLowerCase();
+    return selectTablesAll.filter((t) => t.toLowerCase().includes(kw));
+  }, [selectTablesAll, selectTablesSearch]);
+
+  const toggleSelectTable = (name: string) => {
+    setSelectTablesChecked((prev) =>
+      prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name],
+    );
+  };
+
+  const handleSelectAll = () => setSelectTablesChecked([...selectTablesAll]);
+  const handleDeselectAll = () => setSelectTablesChecked([]);
 
   const copyToClipboard = (text: string, field: string) => {
     navigator.clipboard?.writeText(text).then(() => {
@@ -154,6 +181,39 @@ function SidebarBody({
     () => connections.find((c) => c.id === selectedId) ?? null,
     [connections, selectedId],
   );
+
+  // ── Table visibility helpers ─────────────────────────────────
+  const tableVisibility = settings?.tableVisibility ?? {};
+
+  /** Get the visibility key for a datasource+db combo */
+  const getVisibilityKey = (dsId: string, dbName: string) => `${dsId}:${dbName}`;
+
+  /** Get visible table names for a given database. Empty = show all. */
+  const getVisibleTables = (dsId: string, dbName: string): string[] | null => {
+    const key = getVisibilityKey(dsId, dbName);
+    const list = tableVisibility[key];
+    return list && list.length > 0 ? list : null;
+  };
+
+  /** Filter table names by visibility setting */
+  const filterTables = (dsId: string, dbName: string, tables: string[]): string[] => {
+    const visible = getVisibleTables(dsId, dbName);
+    return visible ? tables.filter((t) => visible.includes(t)) : tables;
+  };
+
+  /** Save table visibility and persist to settings */
+  const saveTableVisibility = async (dsId: string, dbName: string, tables: string[]) => {
+    if (!settings) return;
+    const key = getVisibilityKey(dsId, dbName);
+    const next: Record<string, string[]> = { ...tableVisibility };
+    if (tables.length === 0) {
+      delete next[key]; // empty = show all → remove filter
+    } else {
+      next[key] = tables;
+    }
+    const updated = { ...settings, tableVisibility: next };
+    await save(updated);
+  };
 
   // Notify parent when selection changes (for docs folder button)
   useEffect(() => {
@@ -215,11 +275,12 @@ function SidebarBody({
             const dbName = key.replace("mysql:", "");
             listMysqlTables(selectedConfig, dbName)
               .then((tables) => {
+                const filtered = filterTables(selectedConfig.id, dbName, tables);
                 setTreeData((origin) =>
                   updateTreeData(
                     origin,
                     key,
-                    tables.map((t) => ({
+                    filtered.map((t) => ({
                       title: t,
                       key: `${key}:${t}`,
                       isLeaf: false,
@@ -265,7 +326,7 @@ function SidebarBody({
 
         resolve();
       }),
-    [selectedConfig, messageApi],
+    [selectedConfig, messageApi, tableVisibility],
   );
 
   // ── Select options grouped by type ────────────────────────────
@@ -330,6 +391,11 @@ function SidebarBody({
         icon: <CodeOutlined />,
         label: t("sidebar.ctx.newQuery"),
       });
+      items.push({
+        key: "selectTables",
+        icon: <CheckOutlined />,
+        label: t("sidebar.ctx.selectTables"),
+      });
     }
 
     // "编辑文档" for MySQL table nodes
@@ -343,6 +409,50 @@ function SidebarBody({
 
     return items;
   }, [t, ctxMenu]);
+
+  // ── Select tables modal handlers ─────────────────────────────
+  const openSelectTablesModal = async (dbName: string) => {
+    if (!selectedConfig) return;
+    setSelectTablesDb(dbName);
+    setSelectTablesOpen(true);
+    setSelectTablesLoading(true);
+    setSelectTablesSearch("");
+    try {
+      const allTables = await listMysqlTables(selectedConfig, dbName);
+      setSelectTablesAll(allTables);
+      const visible = getVisibleTables(selectedConfig.id, dbName);
+      setSelectTablesChecked(visible ?? allTables);
+    } catch {
+      setSelectTablesAll([]);
+      setSelectTablesChecked([]);
+    } finally {
+      setSelectTablesLoading(false);
+    }
+  };
+
+  const handleSelectTablesOk = async () => {
+    if (!selectedConfig) return;
+    const tablesToSave =
+      selectTablesChecked.length === selectTablesAll.length
+        ? []
+        : selectTablesChecked;
+    await saveTableVisibility(selectedConfig.id, selectTablesDb, tablesToSave);
+    setSelectTablesOpen(false);
+    setSelectTablesSearch("");
+
+    // Clear the affected database node's children so they reload with
+    // the new visibility settings when the user expands the node again.
+    const dbKey = `mysql:${selectTablesDb}`;
+    setTreeData((origin) =>
+      origin.map((node) => {
+        if (node.key === dbKey) {
+          const { children: _children, ...rest } = node;
+          return rest;
+        }
+        return node;
+      }),
+    );
+  };
 
   const handleMenuClick: MenuProps["onClick"] = ({ key, domEvent }) => {
     domEvent.stopPropagation();
@@ -395,6 +505,14 @@ function SidebarBody({
           dbType: selectedConfig.dbType,
         });
         setCtxMenu(null);
+        break;
+      }
+      case "selectTables": {
+        if (!selectedConfig) break;
+        setCtxMenu(null);
+        const dbKey = String(node.key);
+        const selDbName = dbKey.replace("mysql:", "");
+        openSelectTablesModal(selDbName);
         break;
       }
       case "editDoc": {
@@ -529,6 +647,100 @@ function SidebarBody({
           </div>,
           document.body,
         )}
+
+      {/* ── Select Tables Modal ─────────────────────────────── */}
+      <Modal
+        title={
+          <span>
+            <TableOutlined style={{ marginRight: 8 }} />
+            {t("sidebar.ctx.selectTables")}
+            <span style={{ color: "var(--muted-foreground)", marginLeft: 8, fontSize: 13, fontWeight: 400 }}>
+              {selectTablesDb}
+            </span>
+          </span>
+        }
+        open={selectTablesOpen}
+        onCancel={() => {
+          setSelectTablesOpen(false);
+          setSelectTablesSearch("");
+        }}
+        onOk={handleSelectTablesOk}
+        okText={t("settings.save")}
+        cancelText={t("settings.reset")}
+        width={520}
+        destroyOnHidden
+      >
+        {selectTablesLoading ? (
+          <div style={{ textAlign: "center", padding: "40px 0" }}>
+            <Spin size="large" />
+            <p style={{ color: "var(--muted-foreground)", marginTop: 12 }}>加载中…</p>
+          </div>
+        ) : selectTablesAll.length === 0 ? (
+          <div className="select-tables-empty">
+            <InboxOutlined style={{ fontSize: 48, color: "var(--muted-foreground)", opacity: 0.4 }} />
+            <p className="select-tables-empty-text">{t("sidebar.selectTables.emptyTable")}</p>
+          </div>
+        ) : (
+          <div className="select-tables-body">
+            {/* ── Search bar ────────────────────────────────── */}
+            <Input
+              prefix={<SearchOutlined style={{ color: "var(--muted-foreground)" }} />}
+              placeholder={t("sidebar.selectTables.searchPlaceholder")}
+              value={selectTablesSearch}
+              onChange={(e) => setSelectTablesSearch(e.target.value)}
+              allowClear
+              className="select-tables-search"
+            />
+
+            {/* ── Toolbar ──────────────────────────────────── */}
+            <div className="select-tables-toolbar">
+              <span className="select-tables-count">
+                {selectTablesSearch.trim()
+                  ? t("sidebar.selectTables.selectedCount", {
+                      count: selectTablesChecked.length,
+                      total: selectTablesAll.length,
+                    })
+                  : t("sidebar.selectTables.selectedCount", {
+                      count: selectTablesChecked.length,
+                      total: selectTablesAll.length,
+                    })}
+              </span>
+              <span className="select-tables-actions">
+                <Button type="link" size="small" onClick={handleSelectAll}>
+                  {t("sidebar.selectTables.selectAll")}
+                </Button>
+                <Button type="link" size="small" onClick={handleDeselectAll}>
+                  {t("sidebar.selectTables.deselectAll")}
+                </Button>
+              </span>
+            </div>
+
+            {/* ── Table list ──────────────────────────────── */}
+            <div className="select-tables-list">
+              {selectTablesFiltered.length === 0 ? (
+                <div className="select-tables-no-match">
+                  <span>{t("sidebar.selectTables.noMatch")}</span>
+                </div>
+              ) : (
+                selectTablesFiltered.map((tableName) => {
+                  const checked = selectTablesChecked.includes(tableName);
+                  return (
+                    <div
+                      key={tableName}
+                      className={`select-tables-row${checked ? " selected" : ""}`}
+                      onClick={() => toggleSelectTable(tableName)}
+                    >
+                      <Checkbox checked={checked} />
+                      <TableOutlined className="select-tables-row-icon" />
+                      <span className="select-tables-row-name">{tableName}</span>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        )}
+      </Modal>
 
     </div>
   );

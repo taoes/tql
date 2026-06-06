@@ -22,7 +22,16 @@ const messages: Messages = {
       copyName: "Copy name",
       newQuery: "AI Query",
       editDoc: "Edit Doc",
+      selectTables: "Select Tables",
       viewDdl: "View DDL / schema",
+    },
+    selectTables: {
+      searchPlaceholder: "Search table name…",
+      selectAll: "Select All",
+      deselectAll: "Deselect All",
+      selectedCount: "{count}/{total} tables selected",
+      emptyTable: "No tables in this database",
+      noMatch: "No matching tables",
     },
     msg: {
       refreshed: '"{name}" refreshed',

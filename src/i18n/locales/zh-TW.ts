@@ -22,7 +22,16 @@ const messages: Messages = {
       copyName: "複製名稱",
       newQuery: "AI 查詢",
       editDoc: "編輯文件",
+      selectTables: "選擇表",
       viewDdl: "檢視 DDL/結構",
+    },
+    selectTables: {
+      searchPlaceholder: "搜尋表名…",
+      selectAll: "全選",
+      deselectAll: "取消全選",
+      selectedCount: "已選 {count}/{total} 張表",
+      emptyTable: "該資料庫沒有任何表",
+      noMatch: "沒有符合的表",
     },
     msg: {
       refreshed: "已重新整理「{name}」",

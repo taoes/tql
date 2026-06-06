@@ -20,7 +20,16 @@ const raw = {
       copyName: "复制名称",
       newQuery: "AI 查询",
       editDoc: "编辑文档",
+      selectTables: "选择表",
       viewDdl: "查看 DDL/结构",
+    },
+    selectTables: {
+      searchPlaceholder: "搜索表名…",
+      selectAll: "全选",
+      deselectAll: "取消全选",
+      selectedCount: "已选 {count}/{total} 张表",
+      emptyTable: "该数据库没有任何表",
+      noMatch: "没有匹配的表",
     },
     msg: {
       refreshed: "已刷新「{name}」",

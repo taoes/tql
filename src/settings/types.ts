@@ -69,12 +69,21 @@ export interface StyleSettings {
   animation: boolean;
 }
 
+/**
+ * Table visibility filter per database.
+ * Key: "{datasourceId}:{dbName}", Value: array of visible table names.
+ * When empty or missing, all tables are shown.
+ */
+export type TableVisibility = Record<string, string[]>;
+
 export interface AppSettings {
   general: GeneralSettings;
   basic: BasicSettings;
   model: ModelSettings;
   datasource: DatasourceSettings;
   style: StyleSettings;
+  /** Per-database table visibility filter */
+  tableVisibility?: TableVisibility;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -124,4 +133,5 @@ export const DEFAULT_SETTINGS: AppSettings = {
     compact: false,
     animation: true,
   },
+  tableVisibility: {},
 };
