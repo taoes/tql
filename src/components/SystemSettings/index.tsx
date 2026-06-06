@@ -81,7 +81,7 @@ function SystemSettings() {
       label: t("settings.tabs.model"),
       icon: <RobotOutlined />,
       children: (
-        <ModelSettings value={current.model} onChange={(v) => update("model", v)} />
+        <ModelSettings value={current.aiModels} onChange={(v) => update("aiModels", v)} />
       ),
     },
     {

@@ -15,6 +15,8 @@ import {
   CodeOutlined,
   FileTextOutlined,
   CheckOutlined,
+  DatabaseOutlined,
+  TableOutlined,
 } from "@ant-design/icons";
 import type { MenuProps } from "antd";
 import { useTranslation } from "../../i18n";
@@ -146,6 +148,7 @@ function SidebarBody({
             title: db,
             key: `mysql:${db}`,
             isLeaf: false,
+            icon: <DatabaseOutlined style={{ color: "#1677ff" }} />,
           })),
         );
       } else {
@@ -155,6 +158,7 @@ function SidebarBody({
             title: `DB${info.index}  (${info.keyCount} keys)`,
             key: `redis:${info.index}`,
             isLeaf: true,
+            icon: <DatabaseOutlined style={{ color: "#fa8c16" }} />,
           })),
         );
       }
@@ -200,6 +204,7 @@ function SidebarBody({
                       title: t,
                       key: `${key}:${t}`,
                       isLeaf: false,
+                      icon: <TableOutlined style={{ color: "#52c41a" }} />,
                     })),
                   ),
                 );
@@ -314,14 +319,14 @@ function SidebarBody({
 
     if (ctxMenu && isMysqlDbNode(String(ctxMenu.node.key))) {
       items.push({
-        key: "newQuery",
-        icon: <CodeOutlined />,
-        label: t("sidebar.ctx.newQuery"),
-      });
-      items.push({
         key: "selectTables",
         icon: <CheckOutlined />,
         label: t("sidebar.ctx.selectTables"),
+      });
+      items.push({
+        key: "newQuery",
+        icon: <CodeOutlined />,
+        label: t("sidebar.ctx.newQuery"),
       });
     }
 
@@ -454,6 +459,7 @@ function SidebarBody({
           value={selectedId}
           onChange={setSelectedId}
           options={selectOptions}
+          allowClear
           style={{ width: "100%", height: "32px" }}
           placeholder={
             connections.length > 0
@@ -465,7 +471,9 @@ function SidebarBody({
       </div>
 
       {/* Data source info card */}
-      {selectedConfig && <DatasourceInfoCard config={selectedConfig} />}
+      {selectedConfig && (
+        <DatasourceInfoCard config={selectedConfig} onRefresh={loadRoot} />
+      )}
 
       {/* Database tree */}
       <div className="sidebar-body-section sidebar-tree">

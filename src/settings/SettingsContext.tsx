@@ -107,20 +107,24 @@ export function useSettings(): SettingsContextValue {
 }
 
 /**
- * Convenience hook: extracts just the model config for the AI service.
- * Falls back to DEFAULT_SETTINGS while settings are loading or on error,
- * so the AI service is always available.
+ * Convenience hook: extracts the currently active model config
+ * for the AI service. Falls back to DEFAULT_SETTINGS while settings
+ * are loading or on error.
  */
 export function useModelConfig() {
   const { settings } = useSettings();
-  const m = settings?.model ?? DEFAULT_SETTINGS.model;
+  const aiModels = settings?.aiModels ?? DEFAULT_SETTINGS.aiModels;
+  const active =
+    aiModels.models.find((m) => m.id === aiModels.activeModelId) ??
+    aiModels.models[0];
+  if (!active) return null;
   return {
-    provider: m.provider,
-    apiUrl: m.apiUrl,
-    apiKey: m.apiKey,
-    model: m.modelName,
-    temperature: m.temperature,
-    maxTokens: m.maxTokens,
-    topP: m.topP,
+    provider: active.provider,
+    apiUrl: active.apiUrl,
+    apiKey: active.apiKey,
+    model: active.modelName,
+    temperature: active.temperature,
+    maxTokens: active.maxTokens,
+    topP: active.topP,
   };
 }

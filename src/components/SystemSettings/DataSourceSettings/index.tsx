@@ -12,6 +12,7 @@ import {
   Input,
   Select,
   message,
+  Spin,
 } from "antd";
 import { PlusOutlined, DeleteOutlined, ReloadOutlined, EditOutlined } from "@ant-design/icons";
 import type { DatasourceSettings, DataSourceConfig, DbType } from "../../../settings/types";
@@ -28,9 +29,12 @@ function DataSourceSettings({ value, onChange }: Props) {
   const t = useTranslation();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<"success" | "fail" | null>(null);
   const [form] = Form.useForm();
+
+  // Per-row connection status: id → { testing, result }
+  const [statusMap, setStatusMap] = useState<
+    Record<string, { testing: boolean; result: "success" | "fail" | null }>
+  >({});
 
   const patchDefaults = (p: Partial<DatasourceSettings["defaults"]>) =>
     onChange({ ...value, defaults: { ...value.defaults, ...p } });
@@ -61,7 +65,27 @@ function DataSourceSettings({ value, onChange }: Props) {
       {
         title: t("settings.datasource.colStatus"),
         key: "status",
-        render: () => <Tag>{t("settings.datasource.statusUntested")}</Tag>,
+        render: (_: unknown, row: DataSourceConfig) => {
+          const s = statusMap[row.id];
+          if (!s) {
+            return <Tag>{t("settings.datasource.statusUntested")}</Tag>;
+          }
+          if (s.testing) {
+            return (
+              <Tag>
+                <Spin size="small" style={{ marginRight: 4 }} />
+                检测中…
+              </Tag>
+            );
+          }
+          if (s.result === "success") {
+            return <Tag color="green">{t("settings.datasource.statusConnected")}</Tag>;
+          }
+          if (s.result === "fail") {
+            return <Tag color="red">{t("settings.datasource.statusDisconnected")}</Tag>;
+          }
+          return <Tag>{t("settings.datasource.statusUntested")}</Tag>;
+        },
       },
       {
         title: t("settings.datasource.colAction"),
@@ -91,13 +115,12 @@ function DataSourceSettings({ value, onChange }: Props) {
         ),
       },
     ],
-    [t],
+    [t, statusMap],
   );
 
   // ── CRUD handlers ─────────────────────────────────────────
   const handleAdd = () => {
     setEditingId(null);
-    setTestResult(null);
     form.resetFields();
     form.setFieldsValue({
       dbType: "mysql",
@@ -111,7 +134,6 @@ function DataSourceSettings({ value, onChange }: Props) {
 
   const openEdit = (row: DataSourceConfig) => {
     setEditingId(row.id);
-    setTestResult(null);
     form.setFieldsValue(row);
     setModalOpen(true);
   };
@@ -163,34 +185,37 @@ function DataSourceSettings({ value, onChange }: Props) {
     }
   };
 
+  const updateStatus = (id: string, patch: Partial<{ testing: boolean; result: "success" | "fail" | null }>) => {
+    setStatusMap((prev) => ({
+      ...prev,
+      [id]: { ...prev[id], testing: false, result: null, ...patch },
+    }));
+  };
+
   const handleTest = async (row?: DataSourceConfig) => {
-    // If called from modal, read the current form values
     let config: DataSourceConfig;
+    let targetId: string;
     if (row) {
       config = row;
+      targetId = row.id;
     } else {
       try {
         const fields = await form.validateFields();
-        config = {
-          ...(fields as DataSourceConfig),
-          id: editingId ?? "temp-test",
-        };
+        config = { ...(fields as DataSourceConfig), id: editingId ?? "temp-test" };
+        targetId = editingId ?? "temp-test";
       } catch {
         return;
       }
     }
 
-    setTesting(true);
-    setTestResult(null);
+    updateStatus(targetId, { testing: true, result: null });
     try {
       await testConnection(config);
-      setTestResult("success");
+      updateStatus(targetId, { testing: false, result: "success" });
       message.success(t("settings.datasource.testSuccess"));
     } catch (e) {
-      setTestResult("fail");
+      updateStatus(targetId, { testing: false, result: "fail" });
       message.error(t("settings.datasource.testFailed", { error: String(e) }));
-    } finally {
-      setTesting(false);
     }
   };
 
@@ -344,10 +369,16 @@ function DataSourceSettings({ value, onChange }: Props) {
 
         <Button
           onClick={() => handleTest()}
-          loading={testing}
+          loading={(statusMap[editingId ?? "temp-test"]?.testing)}
           style={{ marginTop: 8 }}
-          type={testResult === "success" ? "primary" : testResult === "fail" ? "dashed" : "default"}
-          danger={testResult === "fail"}
+          type={
+            statusMap[editingId ?? "temp-test"]?.result === "success"
+              ? "primary"
+              : statusMap[editingId ?? "temp-test"]?.result === "fail"
+                ? "dashed"
+                : "default"
+          }
+          danger={statusMap[editingId ?? "temp-test"]?.result === "fail"}
         >
           {t("settings.datasource.testConnection")}
         </Button>

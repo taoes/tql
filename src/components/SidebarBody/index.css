@@ -24,8 +24,17 @@
   font-size: 13px;
 }
 
+.sidebar-tree .ant-tree-indent-unit {
+  width: 16px;
+}
+
 .sidebar-tree .ant-tree-node-content-wrapper {
   min-height: 28px;
+  padding-inline: 4px;
+}
+
+.sidebar-tree .ant-tree-iconEle {
+  margin-inline-end: 4px;
 }
 
 .sidebar-tree-ctx-menu {
@@ -79,18 +88,23 @@
   white-space: nowrap;
 }
 
-.sidebar-ds-info-copy-btn {
+.sidebar-ds-info-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
   opacity: 0;
   transition: opacity 0.15s;
 }
 
-.sidebar-ds-info-header:hover .sidebar-ds-info-copy-btn,
-.sidebar-ds-info-body:hover .sidebar-ds-info-copy-btn {
+.sidebar-ds-info-header:hover .sidebar-ds-info-actions {
   opacity: 1;
 }
 
 .sidebar-ds-info-body {
   padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .sidebar-ds-info-row {

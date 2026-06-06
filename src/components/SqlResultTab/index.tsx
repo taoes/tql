@@ -8,6 +8,7 @@ import {
   Popover,
   Spin,
   Alert,
+  Tooltip,
 } from "antd";
 import type { MenuProps } from "antd";
 import type { SorterResult, TablePaginationConfig } from "antd/es/table/interface";
@@ -70,6 +71,9 @@ export default function SqlResultTab({
     error: null,
     result: null,
   });
+  const [lastExecutionTimeMs, setLastExecutionTimeMs] = useState<number | null>(
+    null,
+  );
 
   // Sync external sql prop when it changes (but not when exiting edit mode)
   useEffect(() => {
@@ -80,6 +84,8 @@ export default function SqlResultTab({
   const runQuery = useCallback(
     async (sqlText: string, signal?: AbortSignal) => {
       setQueryState({ loading: true, error: null, result: null });
+      setLastExecutionTimeMs(null);
+      const startTime = performance.now();
       try {
         const timeout = settings?.basic.queryTimeout ?? 30;
         const maxRows = settings?.basic.maxRows ?? 1000;
@@ -90,16 +96,20 @@ export default function SqlResultTab({
           maxRows,
           timeout,
         );
+        const elapsed = Math.round(performance.now() - startTime);
         if (!signal?.aborted) {
           setQueryState({ loading: false, error: null, result });
+          setLastExecutionTimeMs(result.executionTimeMs ?? elapsed);
         }
       } catch (e) {
+        const elapsed = Math.round(performance.now() - startTime);
         if (!signal?.aborted) {
           setQueryState({
             loading: false,
             error: e instanceof Error ? e.message : String(e),
             result: null,
           });
+          setLastExecutionTimeMs(elapsed);
         }
       }
     },
@@ -184,7 +194,13 @@ export default function SqlResultTab({
                 NULL
               </span>
             );
-          return String(v);
+          const text = String(v);
+          if (text.length <= 50) return text;
+          return (
+            <Tooltip title={text}>
+              {text.slice(0, 50)}…
+            </Tooltip>
+          );
         },
       }));
   }, [allColumnDefs, visibleColumns]);
@@ -302,6 +318,15 @@ export default function SqlResultTab({
     { key: "json", label: t("workspace.exportJSON"), onClick: handleExportJSON },
   ];
 
+  /** Whether the current result is from a DML statement (INSERT/UPDATE/DELETE etc.) */
+  const isDml = useMemo(() => {
+    return (
+      queryState.result !== null &&
+      queryState.result.columns.length === 0 &&
+      queryState.result.rowCount >= 0
+    );
+  }, [queryState.result]);
+
   // ---- column selector content ----
   const columnSelectorContent = (
     <Checkbox.Group
@@ -411,9 +436,21 @@ export default function SqlResultTab({
       <section className="sql-result-data">
         <div className="sql-result-label">
           {t("workspace.resultSection")}
-          {queryState.result && (
+          {queryState.result && !isDml && (
             <span className="sql-result-rows">
-              {t("workspace.rowsAffected", { n: queryState.result.rowCount })}
+              {t("workspace.rowsAffected", {
+                n: queryState.result.rowCount,
+              })}
+            </span>
+          )}
+          {lastExecutionTimeMs !== null && (
+            <span className="sql-result-time">
+              {t("workspace.executionTime", {
+                time:
+                  lastExecutionTimeMs < 1000
+                    ? `${lastExecutionTimeMs}ms`
+                    : `${(lastExecutionTimeMs / 1000).toFixed(2)}s`,
+              })}
             </span>
           )}
         </div>
@@ -436,29 +473,43 @@ export default function SqlResultTab({
 
         {!queryState.loading && !queryState.error && (
           <>
-            <div className="sql-result-toolbar">
-              <Popover
-                content={columnSelectorContent}
-                title={t("workspace.selectColumns")}
-                trigger="click"
-                placement="bottomLeft"
-              >
-                <Button size="small" icon={<SettingOutlined />}>
-                  {t("workspace.columns")}
-                </Button>
-              </Popover>
-            </div>
-            <div className="sql-result-table-wrapper">
-              <Table<TableRow>
-                size="small"
-                columns={tableColumns}
-                dataSource={processedData}
-                pagination={false}
-                onChange={handleTableChange}
-                locale={{ emptyText: t("workspace.emptyResult") }}
-                scroll={{ x: "max-content" }}
+            {isDml ? (
+              <Alert
+                type="success"
+                message={t("workspace.dmlExecuted")}
+                description={t("workspace.dmlAffected", {
+                  n: queryState.result!.rowCount,
+                })}
+                showIcon
+                style={{ marginTop: 8 }}
               />
-            </div>
+            ) : (
+              <>
+                <div className="sql-result-toolbar">
+                  <Popover
+                    content={columnSelectorContent}
+                    title={t("workspace.selectColumns")}
+                    trigger="click"
+                    placement="bottomLeft"
+                  >
+                    <Button size="small" icon={<SettingOutlined />}>
+                      {t("workspace.columns")}
+                    </Button>
+                  </Popover>
+                </div>
+                <div className="sql-result-table-wrapper">
+                  <Table<TableRow>
+                    size="small"
+                    columns={tableColumns}
+                    dataSource={processedData}
+                    pagination={false}
+                    onChange={handleTableChange}
+                    locale={{ emptyText: t("workspace.emptyResult") }}
+                    scroll={{ x: "max-content" }}
+                  />
+                </div>
+              </>
+            )}
           </>
         )}
       </section>

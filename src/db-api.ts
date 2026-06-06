@@ -26,11 +26,13 @@ export interface RedisDbInfo {
 /** Result of a SQL query execution.
  *  `columns` describes the result set schema;
  *  `rows` is a 2-D array, each inner array is one row
- *  positional-matched to `columns`. */
+ *  positional-matched to `columns`;
+ *  `executionTimeMs` is the server-side execution time in milliseconds (set by backend). */
 export interface QueryResult {
   columns: ColumnInfo[];
   rows: (string | number | null | boolean)[][];
   rowCount: number;
+  executionTimeMs?: number;
 }
 
 /** Test a database connection. Returns true on success. */

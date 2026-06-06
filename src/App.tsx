@@ -122,7 +122,6 @@ export default function App() {
           collapsible
         >
           <aside className="sidebar">
-            <SidebarTitle />
             <SidebarBody
               onSelectDs={setSelectedDsName}
               onNewQuery={(ctx) => setDbChatToOpen(ctx)}
@@ -134,14 +133,17 @@ export default function App() {
 
         <Splitter.Panel>
           <section className="content">
-            <StatusBar
-              onSettingsClick={() => setSettingsOpen(true)}
-              onOpenDocs={() =>
-                openDocsFolder(selectedDsName ?? undefined).catch((e) =>
-                  messageApi.error(String(e)),
-                )
-              }
-            />
+            <div className="content-header">
+              <SidebarTitle />
+              <StatusBar
+                onSettingsClick={() => setSettingsOpen(true)}
+                onOpenDocs={() =>
+                  openDocsFolder(selectedDsName ?? undefined).catch((e) =>
+                    messageApi.error(String(e)),
+                  )
+                }
+              />
+            </div>
             <ContentBody
               dbChatToOpen={dbChatToOpen}
               onDbChatOpened={() => setDbChatToOpen(null)}

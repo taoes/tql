@@ -19,7 +19,10 @@ export interface BasicSettings {
   exportFormat: "csv" | "json" | "excel";
 }
 
-export interface ModelSettings {
+export interface ModelConfig {
+  id: string;
+  /** Display name, e.g. "DeepSeek V3", "Claude Opus 4" */
+  name: string;
   provider: "openai" | "anthropic" | "deepseek" | "local";
   apiUrl: string;
   apiKey: string;
@@ -29,6 +32,11 @@ export interface ModelSettings {
   topP: number;
   stream: boolean;
   contextMemory: boolean;
+}
+
+export interface ModelSettings {
+  activeModelId: string;
+  models: ModelConfig[];
 }
 
 export interface DataSourceDefaults {
@@ -79,7 +87,7 @@ export type TableVisibility = Record<string, string[]>;
 export interface AppSettings {
   general: GeneralSettings;
   basic: BasicSettings;
-  model: ModelSettings;
+  aiModels: ModelSettings;
   datasource: DatasourceSettings;
   style: StyleSettings;
   /** Per-database table visibility filter */
@@ -104,16 +112,49 @@ export const DEFAULT_SETTINGS: AppSettings = {
     syntaxHighlight: true,
     exportFormat: "csv",
   },
-  model: {
-    provider: "openai",
-    apiUrl: "https://api.openai.com/v1",
-    apiKey: "",
-    modelName: "gpt-4o",
-    temperature: 0.7,
-    maxTokens: 4096,
-    topP: 1,
-    stream: true,
-    contextMemory: true,
+  aiModels: {
+    activeModelId: "deepseek-v3",
+    models: [
+      {
+        id: "deepseek-v3",
+        name: "DeepSeek V3",
+        provider: "deepseek",
+        apiUrl: "https://api.deepseek.com/v1",
+        apiKey: "",
+        modelName: "deepseek-chat",
+        temperature: 0.7,
+        maxTokens: 4096,
+        topP: 1,
+        stream: true,
+        contextMemory: true,
+      },
+      {
+        id: "claude-opus-4",
+        name: "Claude Opus 4.8",
+        provider: "anthropic",
+        apiUrl: "https://api.anthropic.com/v1",
+        apiKey: "",
+        modelName: "claude-opus-4-8",
+        temperature: 0.7,
+        maxTokens: 4096,
+        topP: 1,
+        stream: true,
+        contextMemory: true,
+      },
+      {
+        id: "gpt-4o",
+        name: "GPT-4o",
+        provider: "openai",
+        apiUrl: "https://api.openai.com/v1",
+        apiKey: "",
+        modelName: "gpt-4o",
+        temperature: 0.7,
+        maxTokens: 4096,
+        topP: 1,
+        stream: true,
+        contextMemory: true,
+      },
+    ],
   },
   datasource: {
     defaults: {

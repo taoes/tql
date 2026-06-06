@@ -4,15 +4,17 @@ import {
   CheckOutlined,
   EnvironmentOutlined,
   LinkOutlined,
+  ReloadOutlined,
   UserOutlined,
 } from "@ant-design/icons";
 import type { DataSourceConfig } from "../../settings/types";
 
 interface Props {
   config: DataSourceConfig;
+  onRefresh?: () => void;
 }
 
-function DatasourceInfoCard({ config }: Props) {
+function DatasourceInfoCard({ config, onRefresh }: Props) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [messageApi, contextHolder] = message.useMessage();
 
@@ -35,23 +37,32 @@ function DatasourceInfoCard({ config }: Props) {
           {config.dbType === "mysql" ? "MySQL" : "Redis"}
         </Tag>
         <span className="sidebar-ds-info-name">{config.name}</span>
-        <Tooltip title="复制连接串">
-          <Button
-            className="sidebar-ds-info-copy-btn"
-            type="text"
-            size="small"
-            icon={
-              copiedField === "conn" ? (
-                <CheckOutlined style={{ color: "#52c41a" }} />
-              ) : (
-                <LinkOutlined style={{ fontSize: 12 }} />
-              )
-            }
-            onClick={() =>
-              copyToClipboard(`${config.host}:${config.port}`, "conn")
-            }
-          />
-        </Tooltip>
+        <span className="sidebar-ds-info-actions">
+          <Tooltip title="复制连接串">
+            <Button
+              type="text"
+              size="small"
+              icon={
+                copiedField === "conn" ? (
+                  <CheckOutlined style={{ color: "#52c41a" }} />
+                ) : (
+                  <LinkOutlined style={{ fontSize: 12 }} />
+                )
+              }
+              onClick={() =>
+                copyToClipboard(`${config.host}:${config.port}`, "conn")
+              }
+            />
+          </Tooltip>
+          <Tooltip title="刷新表列表">
+            <Button
+              type="text"
+              size="small"
+              icon={<ReloadOutlined style={{ fontSize: 12 }} />}
+              onClick={onRefresh}
+            />
+          </Tooltip>
+        </span>
       </div>
       <div className="sidebar-ds-info-body">
         <div className="sidebar-ds-info-row">
@@ -59,13 +70,13 @@ function DatasourceInfoCard({ config }: Props) {
           <code className="sidebar-ds-info-value">{config.host}</code>
           <span className="sidebar-ds-info-sep">:</span>
           <code className="sidebar-ds-info-value">{config.port}</code>
-          {config.user && (
-            <>
-              <UserOutlined className="sidebar-ds-info-icon" />
-              <code className="sidebar-ds-info-value">{config.user}</code>
-            </>
-          )}
         </div>
+        {config.user && (
+          <div className="sidebar-ds-info-row">
+            <UserOutlined className="sidebar-ds-info-icon" />
+            <code className="sidebar-ds-info-value">{config.user}</code>
+          </div>
+        )}
       </div>
     </div>
   );

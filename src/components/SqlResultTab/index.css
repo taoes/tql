@@ -37,6 +37,19 @@
   color: var(--color-muted-foreground, #6b7280);
 }
 
+.sql-result-time {
+  font-weight: 400;
+  color: var(--color-muted-foreground, #6b7280);
+}
+
+.sql-result-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 400;
+  color: var(--color-muted-foreground, #6b7280);
+}
+
 /* ---- SQL code wrapper ---- */
 .sql-result-code-wrapper {
   display: flex;

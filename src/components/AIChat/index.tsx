@@ -12,10 +12,10 @@ import {
 } from "@ant-design/icons";
 import { useTranslation } from "../../i18n";
 import { createAIService } from "../../services";
-import type { ChatMessage, ToolDefinition, ParsedToolCall } from "../../services";
+import { buildToolDefinitions, executeToolCalls } from "../../services/tools";
+import type { ChatMessage, ParsedToolCall } from "../../services";
 import { useModelConfig, useSettings } from "../../settings/SettingsContext";
 import { Button, Space, Alert, message, BorderBeam, Avatar } from "antd";
-import { listMysqlTables, listMysqlColumns, readDocument, getMysqlVersion } from "../../db-api";
 import CodeBlock from "./CodeBlock";
 import "./index.css";
 
@@ -75,61 +75,7 @@ interface AIChatProps {
   databaseContext?: DbContext | null;
 }
 
-const MAX_TOOL_ROUNDS = 5;
-
-/** Build tool definitions based on the current database context */
-function buildTools(
-  databaseContext: DbContext | null | undefined,
-): ToolDefinition[] {
-  if (!databaseContext || databaseContext.dbType !== "mysql") return [];
-
-  return [
-    {
-      type: "function" as const,
-      function: {
-        name: "get_database_version",
-        description: `获取当前 MySQL 数据库服务器的版本信息（如 "8.0.35"、"5.7.42" 等），用于判断数据库方言和可用功能。无需参数。`,
-        parameters: { type: "object", properties: {}, required: [] },
-      },
-    },
-    {
-      type: "function" as const,
-      function: {
-        name: "list_tables",
-        description: `列出当前数据库「${databaseContext.databaseName}」中的所有表。无需参数。`,
-        parameters: { type: "object", properties: {}, required: [] },
-      },
-    },
-    {
-      type: "function" as const,
-      function: {
-        name: "get_table_schema",
-        description: `获取当前数据库「${databaseContext.databaseName}」中指定表的字段结构信息，包括字段名、类型、是否可空、键类型、默认值。`,
-        parameters: {
-          type: "object",
-          properties: {
-            tableName: { type: "string", description: "要查询的表名" },
-          },
-          required: ["tableName"],
-        },
-      },
-    },
-    {
-      type: "function" as const,
-      function: {
-        name: "get_table_document",
-        description: `获取当前数据库「${databaseContext.databaseName}」中指定表的技术文档（Markdown 格式），包含表的用途、字段详解、索引分析、关联关系和使用注意事项。`,
-        parameters: {
-          type: "object",
-          properties: {
-            tableName: { type: "string", description: "要查询文档的表名" },
-          },
-          required: ["tableName"],
-        },
-      },
-    },
-  ];
-}
+const MAX_TOOL_ROUNDS = 10;
 
 export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
   const t = useTranslation();
@@ -207,89 +153,18 @@ export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
         prompt += `\n- \`list_tables\`: 列出当前数据库中的所有表`;
         prompt += `\n- \`get_table_schema\`: 获取指定表的字段结构（字段名、类型、键、默认值等）`;
         prompt += `\n- \`get_table_document\`: 获取指定表的技术文档（Markdown 格式，包含用途、字段详解、索引分析等）`;
+        prompt += `\n- \`explain_sql\`: 对一条 SQL 语句执行 EXPLAIN 分析，获取 MySQL 优化器的执行计划（访问类型、索引使用、扫描行数等），用于分析 SQL 性能瓶颈`;
         prompt += `\n\n在回答用户问题前，优先使用工具获取真实的表结构和文档信息，而不是猜测。如果用户没有明确说明数据库版本，建议先调用 \`get_database_version\` 了解版本，以便生成正确方言的 SQL（例如 MySQL 8.0 支持窗口函数和 CTE，5.7 不支持）。`;
       }
     }
     return prompt;
   }, [t, databaseContext, docContent]);
 
-  /** Resolve DataSourceConfig from settings by name */
+  /** Resolve DataSourceConfig from settings by name (used by tool execution). */
   const resolveDataSource = useCallback(
     (datasourceName: string) =>
       settings?.datasource.connections.find((c) => c.name === datasourceName) ?? null,
     [settings],
-  );
-
-  /**
-   * Execute tool calls and return result messages.
-   * Each tool call produces one ChatMessage with role "tool".
-   */
-  const executeTools = useCallback(
-    async (toolCalls: ParsedToolCall[]): Promise<ChatMessage[]> => {
-      if (!databaseContext) return [];
-
-      const results: ChatMessage[] = [];
-      const ds = resolveDataSource(databaseContext.datasourceName);
-
-      for (const tc of toolCalls) {
-        let content = "";
-        try {
-          switch (tc.name) {
-            case "get_database_version": {
-              if (!ds) { content = "错误：无法获取数据源配置"; break; }
-              const version = await getMysqlVersion(ds);
-              content = `当前 MySQL 服务器版本：${version}`;
-              break;
-            }
-            case "list_tables": {
-              if (!ds) { content = "错误：无法获取数据源配置"; break; }
-              const tables = await listMysqlTables(ds, databaseContext.databaseName);
-              content = tables.length > 0
-                ? `数据库「${databaseContext.databaseName}」中的表：\n${tables.map((t) => `- ${t}`).join("\n")}`
-                : `数据库「${databaseContext.databaseName}」中没有任何表。`;
-              break;
-            }
-            case "get_table_schema": {
-              if (!ds) { content = "错误：无法获取数据源配置"; break; }
-              const tableName = tc.arguments.tableName as string;
-              if (!tableName) { content = "错误：缺少 tableName 参数"; break; }
-              const cols = await listMysqlColumns(ds, databaseContext.databaseName, tableName);
-              if (cols.length === 0) {
-                content = `表「${tableName}」不存在或没有字段。`;
-              } else {
-                const rows = cols.map((c) =>
-                  `- ${c.name} | ${c.colType} | ${c.nullable ? "可空" : "NOT NULL"} | 键:${c.key || "-"} | 默认:${c.default ?? "-"}`,
-                );
-                content = `表「${tableName}」的字段结构：\n${rows.join("\n")}`;
-              }
-              break;
-            }
-            case "get_table_document": {
-              const tableName = tc.arguments.tableName as string;
-              if (!tableName) { content = "错误：缺少 tableName 参数"; break; }
-              try {
-                const doc = await readDocument(databaseContext.datasourceName, databaseContext.databaseName, tableName);
-                content = `表「${tableName}」的技术文档：\n\n${doc}`;
-              } catch {
-                content = `表「${tableName}」的文档尚未生成。建议用户在左侧表节点上右键选择「编辑文档」来生成。`;
-              }
-              break;
-            }
-            default:
-              content = `未知工具: ${tc.name}`;
-          }
-        } catch (e) {
-          content = `工具调用失败: ${e}`;
-        }
-        results.push({
-          role: "tool",
-          tool_call_id: tc.id,
-          content,
-        });
-      }
-      return results;
-    },
-    [databaseContext, resolveDataSource],
   );
 
   /**
@@ -316,8 +191,22 @@ export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
         return;
       }
 
+      if (!modelConfig) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.key === aiKey
+              ? { ...m, content: "❌ 未配置 AI 模型，请在设置中添加模型。" }
+              : m,
+          ),
+        );
+        setStreaming(false);
+        setStreamingKey(null);
+        abortRef.current = null;
+        return;
+      }
+
       const ai = createAIService(modelConfig);
-      const tools = buildTools(databaseContext);
+      const tools = buildToolDefinitions(databaseContext);
       let fullContent = "";
       let toolCallsReceived: ParsedToolCall[] = [];
 
@@ -349,7 +238,14 @@ export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
                   ),
                 );
 
-                const toolResults = await executeTools(toolCallsReceived);
+                const ds = databaseContext
+                  ? resolveDataSource(databaseContext.datasourceName)
+                  : null;
+                const toolResults = await executeToolCalls(
+                  toolCallsReceived,
+                  databaseContext!,
+                  ds,
+                );
 
                 const assistantToolCalls = toolCallsReceived.map((tc) => ({
                   id: tc.id,
@@ -404,7 +300,7 @@ export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
         abortRef.current = controller;
       });
     },
-    [modelConfig, databaseContext, executeTools],
+    [modelConfig, databaseContext, resolveDataSource],
   );
 
   /** Regenerate AI response for a user message */
@@ -682,7 +578,7 @@ export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
             value={inputValue}
             onChange={(v) => setInputValue(v)}
             onSubmit={handleSubmit}
-            submitType="enter"
+            submitType="shiftEnter"
             placeholder={t("aiChat.placeholder")}
             autoSize={{ minRows: 3, maxRows: 5 }}
             footer={footer}
