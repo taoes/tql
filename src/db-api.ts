@@ -38,6 +38,13 @@ export async function testConnection(config: DataSourceConfig): Promise<boolean>
   return invoke<boolean>("test_connection", { config });
 }
 
+/** Get the MySQL server version string (e.g. "8.0.35"). */
+export async function getMysqlVersion(
+  config: DataSourceConfig,
+): Promise<string> {
+  return invoke<string>("get_mysql_version", { config });
+}
+
 /** List all non‑system databases in a MySQL instance. */
 export async function listMysqlDatabases(
   config: DataSourceConfig,

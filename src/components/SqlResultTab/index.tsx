@@ -66,7 +66,7 @@ export default function SqlResultTab({
   }>({ columnKey: "", order: null });
   const [visibleColumns, setVisibleColumns] = useState<string[]>([]);
   const [queryState, setQueryState] = useState<QueryState>({
-    loading: true,
+    loading: false,
     error: null,
     result: null,
   });
@@ -105,13 +105,6 @@ export default function SqlResultTab({
     },
     [dataSourceConfig, databaseName, settings],
   );
-
-  // Auto-execute on mount / when sql changes (with cleanup for StrictMode)
-  useEffect(() => {
-    const controller = new AbortController();
-    runQuery(sql, controller.signal);
-    return () => controller.abort();
-  }, [sql, runQuery]);
 
   // Sync visible columns when result columns change
   useEffect(() => {

@@ -101,6 +101,17 @@ pub async fn test_connection(config: &DataSourceConfig) -> Result<bool, String> 
     Ok(true)
 }
 
+/// Get the MySQL server version string (e.g. "8.0.35").
+pub async fn get_version(config: &DataSourceConfig) -> Result<String, String> {
+    let mut conn = connect(config).await?;
+    let version: Option<String> = conn
+        .query_first("SELECT VERSION()")
+        .await
+        .map_err(|e| format!("Failed to get MySQL version: {e}"))?;
+    conn.disconnect().await.ok();
+    version.ok_or_else(|| "MySQL returned no version".to_string())
+}
+
 /// Build a MySQL connection URL that includes a specific database.
 fn build_url_with_db(config: &DataSourceConfig, database: &str) -> String {
     let user = config.user.as_deref().unwrap_or("root");

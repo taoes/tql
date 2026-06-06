@@ -15,7 +15,7 @@ import { createAIService } from "../../services";
 import type { ChatMessage, ToolDefinition, ParsedToolCall } from "../../services";
 import { useModelConfig, useSettings } from "../../settings/SettingsContext";
 import { Button, Space, Alert, message, BorderBeam, Avatar } from "antd";
-import { listMysqlTables, listMysqlColumns, readDocument } from "../../db-api";
+import { listMysqlTables, listMysqlColumns, readDocument, getMysqlVersion } from "../../db-api";
 import CodeBlock from "./CodeBlock";
 import "./index.css";
 
@@ -84,6 +84,14 @@ function buildTools(
   if (!databaseContext || databaseContext.dbType !== "mysql") return [];
 
   return [
+    {
+      type: "function" as const,
+      function: {
+        name: "get_database_version",
+        description: `获取当前 MySQL 数据库服务器的版本信息（如 "8.0.35"、"5.7.42" 等），用于判断数据库方言和可用功能。无需参数。`,
+        parameters: { type: "object", properties: {}, required: [] },
+      },
+    },
     {
       type: "function" as const,
       function: {
@@ -195,10 +203,11 @@ export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
       if (databaseContext.dbType === "mysql") {
         prompt += `\n\n## 可用工具`;
         prompt += `\n你可以使用以下工具来查询数据库信息：`;
+        prompt += `\n- \`get_database_version\`: 获取 MySQL 服务器版本（如 8.0.x、5.7.x），用于判断可用的 SQL 语法和功能`;
         prompt += `\n- \`list_tables\`: 列出当前数据库中的所有表`;
         prompt += `\n- \`get_table_schema\`: 获取指定表的字段结构（字段名、类型、键、默认值等）`;
         prompt += `\n- \`get_table_document\`: 获取指定表的技术文档（Markdown 格式，包含用途、字段详解、索引分析等）`;
-        prompt += `\n\n在回答用户问题前，优先使用工具获取真实的表结构和文档信息，而不是猜测。`;
+        prompt += `\n\n在回答用户问题前，优先使用工具获取真实的表结构和文档信息，而不是猜测。如果用户没有明确说明数据库版本，建议先调用 \`get_database_version\` 了解版本，以便生成正确方言的 SQL（例如 MySQL 8.0 支持窗口函数和 CTE，5.7 不支持）。`;
       }
     }
     return prompt;
@@ -226,6 +235,12 @@ export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
         let content = "";
         try {
           switch (tc.name) {
+            case "get_database_version": {
+              if (!ds) { content = "错误：无法获取数据源配置"; break; }
+              const version = await getMysqlVersion(ds);
+              content = `当前 MySQL 服务器版本：${version}`;
+              break;
+            }
             case "list_tables": {
               if (!ds) { content = "错误：无法获取数据源配置"; break; }
               const tables = await listMysqlTables(ds, databaseContext.databaseName);

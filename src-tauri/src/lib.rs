@@ -236,6 +236,16 @@ async fn test_connection(config: db::types::DataSourceConfig) -> Result<bool, St
 }
 
 #[tauri::command]
+async fn get_mysql_version(
+    config: db::types::DataSourceConfig,
+) -> Result<String, String> {
+    let timeout = Duration::from_secs(config.connect_timeout.max(1) as u64);
+    tokio::time::timeout(timeout, db::mysql::get_version(&config))
+        .await
+        .map_err(|_| format!("Connection timed out after {}s", config.connect_timeout))?
+}
+
+#[tauri::command]
 async fn list_mysql_databases(
     config: db::types::DataSourceConfig,
 ) -> Result<Vec<String>, String> {
@@ -393,6 +403,7 @@ pub fn run() {
             rename_document_folder,
             open_docs_folder,
             test_connection,
+            get_mysql_version,
             list_mysql_databases,
             list_mysql_tables,
             list_mysql_columns,
