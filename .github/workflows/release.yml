@@ -121,7 +121,7 @@ jobs:
       # ------------------------------------------------------------------
       - name: Install frontend dependencies
         run: |
-          pnpm approve-builds esbuild
+          pnpm approve-builds --all
           pnpm install --frozen-lockfile
 
       # ------------------------------------------------------------------
