@@ -1,5 +1,2 @@
-publicHoistPattern:
-  - '*esbuild*'
-ignoreScripts: false
 allowBuilds:
   esbuild: true
