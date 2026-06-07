@@ -79,7 +79,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: latest
+          version: 11.5.2
 
       # ------------------------------------------------------------------
       # Step 3: 安装 Node.js
@@ -121,7 +121,6 @@ jobs:
       # ------------------------------------------------------------------
       - name: Install frontend dependencies
         run: |
-          pnpm approve-builds --all
           pnpm install --frozen-lockfile
 
       # ------------------------------------------------------------------
