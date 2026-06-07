@@ -18,6 +18,8 @@ const DICTS: Record<Locale, Messages> = {
   "en-US": enUSMessages,
 };
 
+export { DICTS };
+
 const ANTD_LOCALES: Record<Locale, AntdLocale> = {
   "zh-CN": zhCN,
   "zh-TW": zhTW,

@@ -4,6 +4,11 @@ const raw = {
     subtitle: "基于 LLM 的智能 SQL 客户端",
     refreshed: "数据已刷新",
   },
+  tray: {
+    openDocs: "打开文档目录",
+    showHide: "显示/隐藏",
+    quit: "退出程序",
+  },
   statusBar: {
     refresh: "刷新",
     docs: "文档",

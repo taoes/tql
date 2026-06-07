@@ -6,6 +6,11 @@ const messages: Messages = {
     subtitle: "基於 LLM 的智慧 SQL 用戶端",
     refreshed: "資料已重新整理",
   },
+  tray: {
+    openDocs: "開啟文件目錄",
+    showHide: "顯示/隱藏",
+    quit: "結束程式",
+  },
   statusBar: {
     refresh: "重新整理",
     docs: "文件",
