@@ -16,6 +16,7 @@ import { useSettings } from "../../settings/SettingsContext";
 import { DEFAULT_SETTINGS } from "../../settings/types";
 import type { AppSettings } from "../../settings/types";
 import { useI18n } from "../../i18n";
+import { syncTrayMenu } from "../../db-api";
 import "./index.css";
 
 function SystemSettings() {
@@ -32,7 +33,10 @@ function SystemSettings() {
   const update = <K extends keyof AppSettings>(key: K, next: AppSettings[K]) => {
     setLocalSettings((prev) => ({ ...(prev ?? current), [key]: next }));
     if (key === "general") {
-      setLocale((next as AppSettings["general"]).language);
+      const lang = (next as AppSettings["general"]).language;
+      setLocale(lang);
+      // Immediately update tray menu labels to match the new language
+      syncTrayMenu(lang).catch(() => {});
     }
   };
 

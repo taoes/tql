@@ -1,5 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { DataSourceConfig } from "./settings/types";
+import { DICTS } from "./i18n";
+import type { Locale } from "./i18n/types";
 
 // ============================================================
 // Database API — Tauri invoke wrappers
@@ -171,4 +173,27 @@ export async function executeQuery(
     maxRows,
     timeoutSecs,
   });
+}
+
+// ============================================================
+// Tray menu — sync labels with Rust backend
+// ============================================================
+
+/** Update the tray menu labels to match the given locale. */
+export async function setTrayMenuLabels(
+  openDocs: string,
+  showHide: string,
+  quit: string,
+): Promise<void> {
+  return invoke("set_tray_menu_labels", { openDocs, showHide, quit });
+}
+
+/** Look up tray menu labels for a locale and push them to the Rust backend. */
+export async function syncTrayMenu(locale: Locale): Promise<void> {
+  const dict = DICTS[locale] ?? DICTS["en-US"];
+  await setTrayMenuLabels(
+    dict.tray.openDocs,
+    dict.tray.showHide,
+    dict.tray.quit,
+  );
 }

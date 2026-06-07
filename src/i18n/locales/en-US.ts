@@ -6,6 +6,11 @@ const messages: Messages = {
     subtitle: "LLM-powered intelligent SQL client",
     refreshed: "Data refreshed",
   },
+  tray: {
+    openDocs: "Open Document Directory",
+    showHide: "Show/Hide",
+    quit: "Quit",
+  },
   statusBar: {
     refresh: "Refresh",
     docs: "Docs",

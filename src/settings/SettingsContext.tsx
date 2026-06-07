@@ -11,6 +11,8 @@ import { DEFAULT_SETTINGS } from "./types";
 import { loadSettings, saveSettings } from "./api";
 import { useTranslation } from "../i18n";
 import { enable, disable } from "@tauri-apps/plugin-autostart";
+import { invoke } from "@tauri-apps/api/core";
+import { syncTrayMenu } from "../db-api";
 
 // ============================================================
 // Settings Context
@@ -54,6 +56,22 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       } catch {
         // autostart may not be available on all platforms
       }
+
+      // Sync minimize-to-tray flag with Rust backend
+      try {
+        await invoke("set_minimize_to_tray", {
+          enabled: s.general.minimizeToTray,
+        });
+      } catch {
+        // backend may not be available in dev mode
+      }
+
+      // Sync tray menu labels with Rust backend
+      try {
+        await syncTrayMenu(s.general.language);
+      } catch {
+        // backend may not be available in dev mode
+      }
     } catch (e) {
       // Fall back to defaults so the app remains functional
       // even when Tauri backend is unavailable (e.g. Vite dev mode)
@@ -78,6 +96,22 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         }
       } catch {
         // autostart plugin may not be available on all platforms
+      }
+
+      // Sync minimize-to-tray flag with Rust backend
+      try {
+        await invoke("set_minimize_to_tray", {
+          enabled: next.general.minimizeToTray,
+        });
+      } catch {
+        // backend may not be available in dev mode
+      }
+
+      // Sync tray menu labels with Rust backend
+      try {
+        await syncTrayMenu(next.general.language);
+      } catch {
+        // backend may not be available in dev mode
       }
     },
     [],

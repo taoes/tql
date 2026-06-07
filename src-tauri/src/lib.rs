@@ -1,7 +1,62 @@
 use std::path::PathBuf;
+use std::sync::Mutex;
 use std::time::Duration;
 
 mod db;
+
+// ── Tray state ────────────────────────────────────────────────────
+
+/// Shared flag so the close-event handler knows whether to hide
+/// the window instead of quitting.
+struct MinimizeToTrayState(Mutex<bool>);
+
+#[tauri::command]
+fn set_minimize_to_tray(
+    enabled: bool,
+    state: tauri::State<'_, MinimizeToTrayState>,
+) {
+    *state.0.lock().unwrap() = enabled;
+}
+
+/// Holds the tray icon handle so we can update its menu at runtime.
+struct TrayState(Mutex<tauri::tray::TrayIcon>);
+
+#[tauri::command]
+fn set_tray_menu_labels(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, TrayState>,
+    open_docs: String,
+    show_hide: String,
+    quit: String,
+) -> Result<(), String> {
+    use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem};
+
+    let open_docs_item = MenuItemBuilder::with_id("open_docs", &open_docs)
+        .build(&app)
+        .map_err(|e| format!("Failed to build menu item: {e}"))?;
+    let show_hide_item = MenuItemBuilder::with_id("show_hide", &show_hide)
+        .build(&app)
+        .map_err(|e| format!("Failed to build menu item: {e}"))?;
+    let separator = PredefinedMenuItem::separator(&app)
+        .map_err(|e| format!("Failed to build separator: {e}"))?;
+    let quit_item = MenuItemBuilder::with_id("quit_tray", &quit)
+        .build(&app)
+        .map_err(|e| format!("Failed to build menu item: {e}"))?;
+
+    let menu = MenuBuilder::new(&app)
+        .item(&open_docs_item)
+        .item(&show_hide_item)
+        .item(&separator)
+        .item(&quit_item)
+        .build()
+        .map_err(|e| format!("Failed to build menu: {e}"))?;
+
+    let tray = state.0.lock().unwrap();
+    tray.set_menu(Some(menu))
+        .map_err(|e| format!("Failed to set tray menu: {e}"))?;
+
+    Ok(())
+}
 
 // ── Cross-platform home directory ──────────────────────────────────
 
@@ -359,14 +414,118 @@ pub fn run() {
             use tauri::PhysicalPosition;
             use tauri::PhysicalSize;
 
-            // ── Window: fill the screen ──────────────────────────
+            // ── Manage minimize-to-tray state ──────────────────────
+            app.manage(MinimizeToTrayState(Mutex::new(false)));
+
+            // ── Window: fill the screen ────────────────────────────
             if let Some(window) = app.get_webview_window("main") {
                 if let Ok(Some(monitor)) = window.primary_monitor() {
                     let size = monitor.size();
                     let _ = window.set_position(PhysicalPosition::new(0, 0));
                     let _ = window.set_size(PhysicalSize::new(size.width, size.height));
                 }
+
+                // ── Close event → minimize to tray when enabled ────
+                let handle = app.handle().clone();
+                let win_clone = window.clone();
+                window.on_window_event(move |event| {
+                    use tauri::WindowEvent;
+                    if let WindowEvent::CloseRequested { api, .. } = event {
+                        let state = handle.state::<MinimizeToTrayState>();
+                        if *state.0.lock().unwrap() {
+                            api.prevent_close();
+                            let _ = win_clone.hide();
+                        }
+                    }
+                });
             }
+
+            // ── System tray ────────────────────────────────────────
+            let tray_icon = {
+                use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem};
+                use tauri::tray::TrayIconBuilder;
+
+                let handle = app.handle();
+
+                let open_docs =
+                    MenuItemBuilder::with_id("open_docs", "Open Document Directory")
+                        .build(handle)?;
+                let show_hide = MenuItemBuilder::with_id("show_hide", "Show/Hide")
+                    .build(handle)?;
+                let separator = PredefinedMenuItem::separator(handle)?;
+                let quit = MenuItemBuilder::with_id("quit_tray", "Quit")
+                    .build(handle)?;
+
+                let tray_menu = MenuBuilder::new(handle)
+                    .item(&open_docs)
+                    .item(&show_hide)
+                    .item(&separator)
+                    .item(&quit)
+                    .build()?;
+
+                let icon = app
+                    .default_window_icon()
+                    .cloned()
+                    .expect("No default window icon found");
+
+                TrayIconBuilder::new()
+                    .icon(icon)
+                    .menu(&tray_menu)
+                    .on_menu_event(|app_handle, event| {
+                        match event.id.0.as_str() {
+                            "open_docs" => {
+                                let home = home_dir().unwrap();
+                                let path = home.join(".config").join("tql");
+                                std::fs::create_dir_all(&path).ok();
+                                #[cfg(target_os = "macos")]
+                                {
+                                    std::process::Command::new("open")
+                                        .arg(&path)
+                                        .spawn()
+                                        .ok();
+                                }
+                                #[cfg(target_os = "linux")]
+                                {
+                                    std::process::Command::new("xdg-open")
+                                        .arg(&path)
+                                        .spawn()
+                                        .ok();
+                                }
+                                #[cfg(target_os = "windows")]
+                                {
+                                    std::process::Command::new("explorer")
+                                        .arg(&path)
+                                        .spawn()
+                                        .ok();
+                                }
+                            }
+                            "show_hide" => {
+                                if let Some(window) =
+                                    app_handle.get_webview_window("main")
+                                {
+                                    let visible =
+                                        window.is_visible().unwrap_or(true);
+                                    let minimized =
+                                        window.is_minimized().unwrap_or(false);
+                                    if visible && !minimized {
+                                        let _ = window.hide();
+                                    } else {
+                                        let _ = window.show();
+                                        let _ = window.set_focus();
+                                    }
+                                }
+                            }
+                            "quit_tray" => {
+                                app_handle.exit(0);
+                            }
+                            _ => {}
+                        }
+                    })
+                    .build(app)?
+            };
+
+            // Store the tray icon in managed state so we can update its menu later
+            app.manage(TrayState(Mutex::new(tray_icon)));
 
             // ── Menu: simplified macOS menu bar ──────────────────
             #[cfg(target_os = "macos")]
@@ -424,6 +583,8 @@ pub fn run() {
             get_system_theme,
             load_settings,
             save_settings,
+            set_minimize_to_tray,
+            set_tray_menu_labels,
             read_document,
             save_document,
             rename_document_folder,
