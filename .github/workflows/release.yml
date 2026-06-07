@@ -120,7 +120,9 @@ jobs:
       # Step 6: 安装前端依赖
       # ------------------------------------------------------------------
       - name: Install frontend dependencies
-        run: pnpm install --frozen-lockfile
+        run: |
+          pnpm approve-builds esbuild
+          pnpm install --frozen-lockfile
 
       # ------------------------------------------------------------------
       # Step 7: 使用 tauri-action 构建并发布到 Release
