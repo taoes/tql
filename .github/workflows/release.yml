@@ -32,6 +32,8 @@ jobs:
   build:
     name: Build (${{ matrix.label }})
     runs-on: ${{ matrix.platform }}
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true   # 强制 Actions 使用 Node.js 24 运行时
     strategy:
       fail-fast: false        # 一个平台失败不影响其他平台
 
@@ -59,7 +61,7 @@ jobs:
             os: macos
 
           # --- Windows (x86_64) ---
-          - platform: windows-latest
+          - platform: windows-2025
             target: x86_64-pc-windows-msvc
             label: Windows x86_64
             os: windows
@@ -85,7 +87,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'pnpm'
 
       # ------------------------------------------------------------------
