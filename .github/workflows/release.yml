@@ -35,34 +35,34 @@ jobs:
     strategy:
       fail-fast: false        # 一个平台失败不影响其他平台
 
-    # ------------------------------------------------------------------
-    # 构建矩阵定义
-    # ------------------------------------------------------------------
-    matrix:
-      include:
-        # --- Linux (x86_64) ---
-        - platform: ubuntu-22.04
-          target: x86_64-unknown-linux-gnu
-          label: Linux x86_64
-          os: linux
+      # ------------------------------------------------------------------
+      # 构建矩阵定义
+      # ------------------------------------------------------------------
+      matrix:
+        include:
+          # --- Linux (x86_64) ---
+          - platform: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            label: Linux x86_64
+            os: linux
 
-        # --- macOS (Intel) ---
-        - platform: macos-latest
-          target: x86_64-apple-darwin
-          label: macOS Intel
-          os: macos
+          # --- macOS (Intel) ---
+          - platform: macos-latest
+            target: x86_64-apple-darwin
+            label: macOS Intel
+            os: macos
 
-        # --- macOS (Apple Silicon) ---
-        - platform: macos-latest
-          target: aarch64-apple-darwin
-          label: macOS Apple Silicon
-          os: macos
+          # --- macOS (Apple Silicon) ---
+          - platform: macos-latest
+            target: aarch64-apple-darwin
+            label: macOS Apple Silicon
+            os: macos
 
-        # --- Windows (x86_64) ---
-        - platform: windows-latest
-          target: x86_64-pc-windows-msvc
-          label: Windows x86_64
-          os: windows
+          # --- Windows (x86_64) ---
+          - platform: windows-latest
+            target: x86_64-pc-windows-msvc
+            label: Windows x86_64
+            os: windows
 
     steps:
       # ------------------------------------------------------------------
