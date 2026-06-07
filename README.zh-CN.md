@@ -166,4 +166,16 @@ pnpm tauri build
 
 ## 许可证
 
-MIT
+Apache License 2.0
+
+
+
+## Star History
+
+<a href="https://www.star-history.com/?repos=taoes%2Ftql&type=timeline&logscale=&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=taoes/tql&type=timeline&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=taoes/tql&type=timeline&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=taoes/tql&type=timeline&legend=top-left" />
+ </picture>
+</a>
