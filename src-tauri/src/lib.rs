@@ -3,6 +3,32 @@ use std::time::Duration;
 
 mod db;
 
+// ── Cross-platform home directory ──────────────────────────────────
+
+/// Return the user's home directory, supporting Windows / macOS / Linux.
+fn home_dir() -> Result<PathBuf, String> {
+    // Unix: $HOME
+    #[cfg(not(target_os = "windows"))]
+    {
+        std::env::var("HOME")
+            .map(PathBuf::from)
+            .map_err(|_| "无法读取 HOME 环境变量".to_string())
+    }
+
+    // Windows: $USERPROFILE, fallback to HOMEDRIVE + HOMEPATH
+    #[cfg(target_os = "windows")]
+    {
+        if let Ok(up) = std::env::var("USERPROFILE") {
+            return Ok(PathBuf::from(up));
+        }
+        let drive = std::env::var("HOMEDRIVE")
+            .map_err(|_| "无法读取 HOMEDRIVE 环境变量".to_string())?;
+        let path = std::env::var("HOMEPATH")
+            .map_err(|_| "无法读取 HOMEPATH 环境变量".to_string())?;
+        Ok(PathBuf::from(format!("{}{}", drive, path)))
+    }
+}
+
 // ── Theme detection ────────────────────────────────────────────────
 
 /// Detect the OS-level color scheme.
@@ -81,8 +107,8 @@ fn greet(name: &str) -> String {
 }
 
 fn settings_path() -> Result<PathBuf, String> {
-    let home = std::env::var("HOME").map_err(|e| format!("无法读取 HOME 环境变量: {e}"))?;
-    Ok(PathBuf::from(home).join(".config").join("tql").join("setting.json"))
+    let home = home_dir()?;
+    Ok(home.join(".config").join("tql").join("setting.json"))
 }
 
 #[tauri::command]
@@ -124,8 +150,8 @@ fn read_document(
     database: String,
     table_name: String,
 ) -> Result<String, String> {
-    let home = std::env::var("HOME").map_err(|e| format!("无法读取 HOME: {e}"))?;
-    let path = PathBuf::from(home)
+    let home = home_dir()?;
+    let path = home
         .join(".config")
         .join("tql")
         .join(&datasource_name)
@@ -144,8 +170,8 @@ fn save_document(
     table_name: String,
     content: String,
 ) -> Result<String, String> {
-    let home = std::env::var("HOME").map_err(|e| format!("无法读取 HOME: {e}"))?;
-    let dir = PathBuf::from(home)
+    let home = home_dir()?;
+    let dir = home
         .join(".config")
         .join("tql")
         .join(&datasource_name)
@@ -165,8 +191,8 @@ fn rename_document_folder(
     old_name: String,
     new_name: String,
 ) -> Result<(), String> {
-    let home = std::env::var("HOME").map_err(|e| format!("无法读取 HOME: {e}"))?;
-    let base = PathBuf::from(home).join(".config").join("tql");
+    let home = home_dir()?;
+    let base = home.join(".config").join("tql");
     let old_path = base.join(&old_name);
     let new_path = base.join(&new_name);
 
@@ -185,8 +211,8 @@ fn open_docs_folder(
     datasource_name: Option<String>,
     database: Option<String>,
 ) -> Result<(), String> {
-    let home = std::env::var("HOME").map_err(|e| format!("无法读取 HOME: {e}"))?;
-    let mut path = PathBuf::from(home).join(".config").join("tql");
+    let home = home_dir()?;
+    let mut path = home.join(".config").join("tql");
     if let Some(name) = &datasource_name {
         path = path.join(name);
         if let Some(db) = &database {
