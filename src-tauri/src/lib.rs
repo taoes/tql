@@ -310,6 +310,7 @@ async fn test_connection(config: db::types::DataSourceConfig) -> Result<bool, St
         match &config.db_type {
             db::types::DbType::MySql => db::mysql::test_connection(&config).await,
             db::types::DbType::Redis => db::redis::test_connection(&config).await,
+            db::types::DbType::PostgreSql => db::postgresql::test_connection(&config).await,
         }
     })
     .await
@@ -363,6 +364,63 @@ async fn list_mysql_columns(
 }
 
 #[tauri::command]
+async fn get_pgsql_version(
+    config: db::types::DataSourceConfig,
+) -> Result<String, String> {
+    let timeout = Duration::from_secs(config.connect_timeout.max(1) as u64);
+    tokio::time::timeout(timeout, db::postgresql::get_version(&config))
+        .await
+        .map_err(|_| format!("Connection timed out after {}s", config.connect_timeout))?
+}
+
+#[tauri::command]
+async fn list_pgsql_databases(
+    config: db::types::DataSourceConfig,
+) -> Result<Vec<String>, String> {
+    let timeout = Duration::from_secs(config.connect_timeout.max(1) as u64);
+    tokio::time::timeout(timeout, db::postgresql::list_databases(&config))
+        .await
+        .map_err(|_| format!("Connection timed out after {}s", config.connect_timeout))?
+}
+
+#[tauri::command]
+async fn list_pgsql_schemas(
+    config: db::types::DataSourceConfig,
+    database: String,
+) -> Result<Vec<String>, String> {
+    let timeout = Duration::from_secs(config.connect_timeout.max(1) as u64);
+    tokio::time::timeout(timeout, db::postgresql::list_schemas(&config, &database))
+        .await
+        .map_err(|_| format!("Connection timed out after {}s", config.connect_timeout))?
+}
+
+#[tauri::command]
+async fn list_pgsql_tables(
+    config: db::types::DataSourceConfig,
+    database: String,
+) -> Result<Vec<String>, String> {
+    let timeout = Duration::from_secs(config.connect_timeout.max(1) as u64);
+    tokio::time::timeout(timeout, db::postgresql::list_tables(&config, &database))
+        .await
+        .map_err(|_| format!("Connection timed out after {}s", config.connect_timeout))?
+}
+
+#[tauri::command]
+async fn list_pgsql_columns(
+    config: db::types::DataSourceConfig,
+    database: String,
+    table: String,
+) -> Result<Vec<db::types::ColumnInfo>, String> {
+    let timeout = Duration::from_secs(config.connect_timeout.max(1) as u64);
+    tokio::time::timeout(
+        timeout,
+        db::postgresql::list_columns(&config, &database, &table),
+    )
+    .await
+    .map_err(|_| format!("Connection timed out after {}s", config.connect_timeout))?
+}
+
+#[tauri::command]
 async fn list_redis_databases(
     config: db::types::DataSourceConfig,
 ) -> Result<Vec<db::types::RedisDbInfo>, String> {
@@ -381,10 +439,17 @@ async fn execute_query(
     timeout_secs: u32,
 ) -> Result<db::types::QueryResult, String> {
     let timeout = Duration::from_secs(timeout_secs.max(1) as u64);
-    tokio::time::timeout(
-        timeout,
-        db::mysql::execute_query(&config, &database, &sql, max_rows),
-    )
+    tokio::time::timeout(timeout, async {
+        match &config.db_type {
+            db::types::DbType::MySql => {
+                db::mysql::execute_query(&config, &database, &sql, max_rows).await
+            }
+            db::types::DbType::PostgreSql => {
+                db::postgresql::execute_query(&config, &database, &sql, max_rows).await
+            }
+            db::types::DbType::Redis => Err("Redis does not support SQL queries".to_string()),
+        }
+    })
     .await
     .map_err(|_| format!("Query timed out after {}s", timeout_secs))?
 }
@@ -594,6 +659,11 @@ pub fn run() {
             list_mysql_databases,
             list_mysql_tables,
             list_mysql_columns,
+            get_pgsql_version,
+            list_pgsql_databases,
+            list_pgsql_schemas,
+            list_pgsql_tables,
+            list_pgsql_columns,
             list_redis_databases,
             execute_query,
             write_export_file,

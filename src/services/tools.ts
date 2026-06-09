@@ -3,8 +3,11 @@ import type { DataSourceConfig } from "../settings/types";
 import {
   listMysqlTables,
   listMysqlColumns,
+  listPgsqlTables,
+  listPgsqlColumns,
   readDocument,
   getMysqlVersion,
+  getPgsqlVersion,
   executeQuery,
 } from "../db-api";
 
@@ -39,9 +42,10 @@ type ToolHandler = (
 export function buildToolDefinitions(
   ctx: ToolContext | null | undefined,
 ): ToolDefinition[] {
-  if (!ctx || ctx.dbType !== "mysql") return [];
+  if (!ctx || (ctx.dbType !== "mysql" && ctx.dbType !== "postgresql")) return [];
 
   const db = ctx.databaseName;
+  const dbLabel = ctx.dbType === "postgresql" ? "PostgreSQL" : "MySQL";
 
   return [
     {
@@ -49,7 +53,7 @@ export function buildToolDefinitions(
       function: {
         name: "get_database_version",
         description:
-          "获取当前 MySQL 数据库服务器的版本信息（如 8.0.35、5.7.42 等），用于判断数据库方言和可用功能。无需参数。",
+          `获取当前 ${dbLabel} 数据库服务器的版本信息（如 16.3、8.0.35 等），用于判断数据库方言和可用功能。无需参数。`,
         parameters: { type: "object", properties: {}, required: [] },
       },
     },
@@ -93,7 +97,7 @@ export function buildToolDefinitions(
       type: "function" as const,
       function: {
         name: "explain_sql",
-        description: `对一条 SQL 语句执行 EXPLAIN 分析，返回 MySQL 优化器的执行计划（包括访问类型、使用的索引、扫描行数、临时表/文件排序等）。用于分析 SQL 性能瓶颈和优化建议。仅支持 SELECT/INSERT/UPDATE/DELETE 语句。`,
+        description: `对一条 SQL 语句执行 EXPLAIN 分析，返回 ${dbLabel} 优化器的执行计划（包括访问类型、使用的索引、扫描行数等）。用于分析 SQL 性能瓶颈和优化建议。仅支持 SELECT/INSERT/UPDATE/DELETE 语句。`,
         parameters: {
           type: "object",
           properties: {
@@ -113,12 +117,16 @@ export function buildToolDefinitions(
 
 async function handleGetDatabaseVersion(
   _tc: ParsedToolCall,
-  _ctx: ToolContext,
+  ctx: ToolContext,
   ds: DataSourceConfig | null,
 ): Promise<string> {
   if (!ds) return "错误：无法获取数据源配置";
-  const version = await getMysqlVersion(ds);
-  return `当前 MySQL 服务器版本：${version}`;
+  const dbLabel = ctx.dbType === "postgresql" ? "PostgreSQL" : "MySQL";
+  const version =
+    ctx.dbType === "postgresql"
+      ? await getPgsqlVersion(ds)
+      : await getMysqlVersion(ds);
+  return `当前 ${dbLabel} 服务器版本：${version}`;
 }
 
 async function handleListTables(
@@ -127,7 +135,10 @@ async function handleListTables(
   ds: DataSourceConfig | null,
 ): Promise<string> {
   if (!ds) return "错误：无法获取数据源配置";
-  const tables = await listMysqlTables(ds, ctx.databaseName);
+  const tables =
+    ctx.dbType === "postgresql"
+      ? await listPgsqlTables(ds, ctx.databaseName)
+      : await listMysqlTables(ds, ctx.databaseName);
   return tables.length > 0
     ? `数据库「${ctx.databaseName}」中的表：\n${tables.map((t) => `- ${t}`).join("\n")}`
     : `数据库「${ctx.databaseName}」中没有任何表。`;
@@ -142,7 +153,10 @@ async function handleGetTableSchema(
   const tableName = tc.arguments.tableName as string;
   if (!tableName) return "错误：缺少 tableName 参数";
 
-  const cols = await listMysqlColumns(ds, ctx.databaseName, tableName);
+  const cols =
+    ctx.dbType === "postgresql"
+      ? await listPgsqlColumns(ds, ctx.databaseName, tableName)
+      : await listMysqlColumns(ds, ctx.databaseName, tableName);
   if (cols.length === 0) return `表「${tableName}」不存在或没有字段。`;
 
   const rows = cols.map(

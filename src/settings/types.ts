@@ -45,7 +45,7 @@ export interface DataSourceDefaults {
   poolSize: number;
 }
 
-export type DbType = "mysql" | "redis";
+export type DbType = "mysql" | "redis" | "postgresql";
 
 export interface DataSourceConfig {
   id: string;

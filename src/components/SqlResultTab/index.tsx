@@ -356,6 +356,9 @@ export default function SqlResultTab({
               className="sql-result-textarea"
               autoSize={{ minRows: 3, maxRows: 12 }}
               autoFocus
+              spellCheck={false}
+              autoCorrect="off"
+              autoCapitalize="off"
               onKeyDown={(e) => {
                 // Escape → cancel editing, revert changes
                 if (e.key === "Escape") {

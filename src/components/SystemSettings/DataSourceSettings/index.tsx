@@ -52,8 +52,16 @@ function DataSourceSettings({ value, onChange }: Props) {
         dataIndex: "dbType",
         key: "dbType",
         render: (dbType: DbType) => (
-          <Tag color={dbType === "mysql" ? "blue" : "orange"}>
-            {dbType === "mysql" ? "MySQL" : "Redis"}
+          <Tag
+            color={
+              dbType === "mysql" ? "blue" : dbType === "postgresql" ? "cyan" : "orange"
+            }
+          >
+            {dbType === "mysql"
+              ? "MySQL"
+              : dbType === "postgresql"
+                ? "PostgreSQL"
+                : "Redis"}
           </Tag>
         ),
       },
@@ -318,6 +326,7 @@ function DataSourceSettings({ value, onChange }: Props) {
             <Select
               options={[
                 { value: "mysql", label: "MySQL" },
+                { value: "postgresql", label: "PostgreSQL" },
                 { value: "redis", label: "Redis" },
               ]}
             />
@@ -341,7 +350,7 @@ function DataSourceSettings({ value, onChange }: Props) {
             </Form.Item>
           </Space>
 
-          {dbTypeVal === "mysql" && (
+          {(dbTypeVal === "mysql" || dbTypeVal === "postgresql") && (
             <Form.Item name="user" label={t("settings.datasource.formUser")}>
               <Input />
             </Form.Item>
@@ -359,7 +368,7 @@ function DataSourceSettings({ value, onChange }: Props) {
             <Switch />
           </Form.Item>
 
-          {dbTypeVal === "mysql" && (
+          {(dbTypeVal === "mysql" || dbTypeVal === "postgresql") && (
             <Form.Item name="database" label={t("settings.datasource.formDatabase")}>
               <Input placeholder="可选，默认数据库 / Schema" />
             </Form.Item>

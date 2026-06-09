@@ -17,6 +17,7 @@ import {
   readDocument,
   saveDocument,
   listMysqlColumns,
+  listPgsqlColumns,
 } from "../../db-api";
 import "./index.css";
 
@@ -42,7 +43,7 @@ function buildRegeneratePrompt(
 ): string {
   const lines: string[] = [];
 
-  lines.push("你是一个数据库文档专家。请为以下 MySQL 数据表重新生成技术文档（Markdown 格式）。");
+  lines.push("你是一个数据库文档专家。请为以下数据表重新生成技术文档（Markdown 格式）。");
   lines.push("");
   lines.push("## 基本信息");
   lines.push(`- 数据源: ${datasourceName}`);
@@ -169,7 +170,10 @@ function DocEditorTab({
 
     try {
       // Fetch table schema
-      const columns = await listMysqlColumns(dataSourceConfig, dbName, tableName);
+      const columns =
+        dataSourceConfig.dbType === "postgresql"
+          ? await listPgsqlColumns(dataSourceConfig, dbName, tableName)
+          : await listMysqlColumns(dataSourceConfig, dbName, tableName);
 
       // Build prompt with existing content
       const prompt = buildRegeneratePrompt(
@@ -309,7 +313,7 @@ function DocEditorTab({
       {phase === "loading" && (
         <div className="doc-editor-loading">
           <Spin indicator={<LoadingOutlined style={{ fontSize: 24 }} spin />} />
-          <p style={{ marginTop: 12, color: "#888" }}>加载文档...</p>
+          <p style={{ marginTop: 12 }}>加载文档...</p>
         </div>
       )}
 
@@ -335,7 +339,7 @@ function DocEditorTab({
         <div className="doc-editor-body">
           {!hasDoc && !content && phase !== "error" ? (
             <div className="doc-editor-empty">
-              <FileTextOutlined style={{ fontSize: 48, color: "#bbb" }} />
+              <FileTextOutlined style={{ fontSize: 48 }} />
               <p>{t("docEditor.noContent")}</p>
             </div>
           ) : null}
@@ -345,6 +349,9 @@ function DocEditorTab({
             onChange={(e) => setContent(e.target.value)}
             placeholder="# 表文档"
             disabled={phase === "saving"}
+            spellCheck={false}
+            autoCorrect="off"
+            autoCapitalize="off"
             autoSize={false}
             style={{
               flex: 1,

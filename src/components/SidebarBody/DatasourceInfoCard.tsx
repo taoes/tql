@@ -31,10 +31,20 @@ function DatasourceInfoCard({ config, onRefresh }: Props) {
       {contextHolder}
       <div className="sidebar-ds-info-header">
         <Tag
-          color={config.dbType === "mysql" ? "geekblue" : "orange"}
+          color={
+            config.dbType === "mysql"
+              ? "geekblue"
+              : config.dbType === "postgresql"
+                ? "cyan"
+                : "orange"
+          }
           style={{ margin: 0 }}
         >
-          {config.dbType === "mysql" ? "MySQL" : "Redis"}
+          {config.dbType === "mysql"
+            ? "MySQL"
+            : config.dbType === "postgresql"
+              ? "PostgreSQL"
+              : "Redis"}
         </Tag>
         <span className="sidebar-ds-info-name">{config.name}</span>
         <span className="sidebar-ds-info-actions">
