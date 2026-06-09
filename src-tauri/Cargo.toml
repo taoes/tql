@@ -1,7 +1,8 @@
 [package]
 name = "tql"
-version = "0.1.0"
-description = "A Tauri App"
+version = "0.0.2"
+description = "TextQL — LLM-powered intelligent SQL client"
+repository = "https://github.com/taoes/tql"
 authors = ["you"]
 edition = "2021"
 
@@ -27,4 +28,5 @@ serde_json = "1"
 tokio = { version = "1", features = ["time"] }
 mysql_async = "0.37"
 redis = { version = "1.2", features = ["tokio-comp"] }
+tokio-postgres = "0.7"
 

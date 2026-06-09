@@ -21,6 +21,15 @@ export interface ContextState {
   node: DataNode;
 }
 
+/** True if the tree key represents a MySQL/PostgreSQL database node (2 segments). */
+export function isDbNode(key: string): boolean {
+  const parts = key.split(":");
+  return (
+    (key.startsWith("mysql:") || key.startsWith("pgsql:")) &&
+    parts.length === 2
+  );
+}
+
 /** True if the tree key represents a MySQL database node (2 segments). */
 export function isMysqlDbNode(key: string): boolean {
   return key.startsWith("mysql:") && key.split(":").length === 2;
@@ -29,4 +38,9 @@ export function isMysqlDbNode(key: string): boolean {
 /** True if the tree key represents a MySQL table node (3 segments). */
 export function isMysqlTableNode(key: string): boolean {
   return key.startsWith("mysql:") && key.split(":").length === 3;
+}
+
+/** True if the tree key represents a PostgreSQL table node (3 segments). */
+export function isPgsqlTableNode(key: string): boolean {
+  return key.startsWith("pgsql:") && key.split(":").length === 3;
 }

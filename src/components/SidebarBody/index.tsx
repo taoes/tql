@@ -25,13 +25,17 @@ import {
   listMysqlDatabases,
   listMysqlTables,
   listMysqlColumns,
+  listPgsqlDatabases,
+  listPgsqlTables,
+  listPgsqlColumns,
   listRedisDatabases,
 } from "../../db-api";
 import type { DataSourceConfig } from "../../settings/types";
 import {
   updateTreeData,
-  isMysqlDbNode,
+  isDbNode,
   isMysqlTableNode,
+  isPgsqlTableNode,
 } from "./helpers";
 import type { ContextState } from "./helpers";
 import { getColumnIcon } from "./columnIcon";
@@ -151,6 +155,16 @@ function SidebarBody({
             icon: <DatabaseOutlined style={{ color: "#1677ff" }} />,
           })),
         );
+      } else if (selectedConfig.dbType === "postgresql") {
+        const dbs = await listPgsqlDatabases(selectedConfig);
+        setTreeData(
+          dbs.map((db) => ({
+            title: db,
+            key: `pgsql:${db}`,
+            isLeaf: false,
+            icon: <DatabaseOutlined style={{ color: "#13c2c2" }} />,
+          })),
+        );
       } else {
         const dbs = await listRedisDatabases(selectedConfig);
         setTreeData(
@@ -246,6 +260,67 @@ function SidebarBody({
           }
         }
 
+        if (selectedConfig.dbType === "postgresql") {
+          // Database node → load tables
+          if (key.startsWith("pgsql:") && key.split(":").length === 2) {
+            const dbName = key.replace("pgsql:", "");
+            listPgsqlTables(selectedConfig, dbName)
+              .then((tables) => {
+                const filtered = filterTables(
+                  selectedConfig.id,
+                  dbName,
+                  tables,
+                );
+                setTreeData((origin) =>
+                  updateTreeData(
+                    origin,
+                    key,
+                    filtered.map((t) => ({
+                      title: t,
+                      key: `${key}:${t}`,
+                      isLeaf: false,
+                      icon: <TableOutlined style={{ color: "#13c2c2" }} />,
+                    })),
+                  ),
+                );
+                resolve();
+              })
+              .catch((e) => {
+                messageApi.error(String(e));
+                resolve();
+              });
+            return;
+          }
+
+          // Table node → load columns
+          if (key.startsWith("pgsql:") && key.split(":").length === 3) {
+            const parts = key.split(":");
+            const dbName = parts[1];
+            const tableName = parts.slice(2).join(":");
+            listPgsqlColumns(selectedConfig, dbName, tableName)
+              .then((cols) => {
+                setTreeData((origin) =>
+                  updateTreeData(
+                    origin,
+                    key,
+                    cols.map((col) => ({
+                      title: `${col.name}  ${col.colType}`,
+                      key: `${key}:${col.name}`,
+                      isLeaf: true,
+                      icon: getColumnIcon(col),
+                    })),
+                  ),
+                );
+                resolve();
+              })
+              .catch((e) => {
+                messageApi.error(String(e));
+                resolve();
+              });
+            return;
+          }
+        }
+
         resolve();
       }),
     [selectedConfig, messageApi, tableVisibility],
@@ -263,6 +338,17 @@ function SidebarBody({
       groups.push({
         label: "MySQL",
         options: mysqlConns.map((c) => ({
+          value: c.id,
+          label: c.name,
+        })),
+      });
+    }
+
+    const pgsqlConns = connections.filter((c) => c.dbType === "postgresql");
+    if (pgsqlConns.length > 0) {
+      groups.push({
+        label: "PostgreSQL",
+        options: pgsqlConns.map((c) => ({
           value: c.id,
           label: c.name,
         })),
@@ -317,7 +403,7 @@ function SidebarBody({
       },
     ];
 
-    if (ctxMenu && isMysqlDbNode(String(ctxMenu.node.key))) {
+    if (ctxMenu && isDbNode(String(ctxMenu.node.key))) {
       items.push({
         key: "selectTables",
         icon: <CheckOutlined />,
@@ -330,7 +416,11 @@ function SidebarBody({
       });
     }
 
-    if (ctxMenu && isMysqlTableNode(String(ctxMenu.node.key))) {
+    if (
+      ctxMenu &&
+      (isMysqlTableNode(String(ctxMenu.node.key)) ||
+        isPgsqlTableNode(String(ctxMenu.node.key)))
+    ) {
       items.push({
         key: "editDoc",
         icon: <FileTextOutlined />,
@@ -388,7 +478,10 @@ function SidebarBody({
 
       case "newQuery": {
         if (!selectedConfig) break;
-        const dbName = nodeKey.replace("mysql:", "");
+        const dbName =
+          selectedConfig.dbType === "postgresql"
+            ? nodeKey.replace("pgsql:", "")
+            : nodeKey.replace("mysql:", "");
         onNewQuery?.({
           datasourceName: selectedConfig.name,
           databaseName: dbName,
@@ -401,7 +494,11 @@ function SidebarBody({
       case "selectTables": {
         if (!selectedConfig) break;
         setCtxMenu(null);
-        setSelectTablesDb(nodeKey.replace("mysql:", ""));
+        setSelectTablesDb(
+          selectedConfig.dbType === "postgresql"
+            ? nodeKey.replace("pgsql:", "")
+            : nodeKey.replace("mysql:", ""),
+        );
         setSelectTablesOpen(true);
         break;
       }
@@ -431,7 +528,8 @@ function SidebarBody({
 
       // Clear the affected database node's children so they reload
       // with the new visibility settings on next expand.
-      const dbKey = `mysql:${selectTablesDb}`;
+      const prefix = selectedConfig?.dbType === "postgresql" ? "pgsql:" : "mysql:";
+      const dbKey = `${prefix}${selectTablesDb}`;
       setTreeData((origin) =>
         origin.map((node) => {
           if (node.key === dbKey) {
@@ -495,16 +593,21 @@ function SidebarBody({
             }}
             onDoubleClick={(_e, node) => {
               const key = String(node.key);
-              if (
-                selectedConfig &&
-                selectedConfig.dbType === "mysql" &&
+              const isMysqlTable =
+                selectedConfig?.dbType === "mysql" &&
                 key.startsWith("mysql:") &&
-                key.split(":").length === 3
-              ) {
+                key.split(":").length === 3;
+              const isPgsqlTable =
+                selectedConfig?.dbType === "postgresql" &&
+                key.startsWith("pgsql:") &&
+                key.split(":").length === 3;
+
+              if (selectedConfig && (isMysqlTable || isPgsqlTable)) {
                 const parts = key.split(":");
                 const dbName = parts[1];
                 const tableName = parts.slice(2).join(":");
-                const sql = `SELECT * FROM \`${tableName}\` LIMIT 10;`;
+                const quote = isMysqlTable ? "`" : '"';
+                const sql = `SELECT * FROM ${quote}${tableName}${quote} LIMIT 10;`;
                 onOpenTableQuery?.({
                   sql,
                   datasourceName: selectedConfig.name,

@@ -1,12 +1,13 @@
 const raw = {
   app: {
-    title: "TextQL 0.1.0",
+    title: "TextQL",
     subtitle: "基于 LLM 的智能 SQL 客户端",
     refreshed: "数据已刷新",
   },
   tray: {
     openDocs: "打开文档目录",
     showHide: "显示/隐藏",
+    about: "关于 TextQL",
     quit: "退出程序",
   },
   statusBar: {

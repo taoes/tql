@@ -7,6 +7,8 @@ pub enum DbType {
     MySql,
     #[serde(rename = "redis")]
     Redis,
+    #[serde(rename = "postgresql")]
+    PostgreSql,
 }
 
 /// Full connection configuration for a data source.

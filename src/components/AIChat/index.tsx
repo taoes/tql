@@ -144,17 +144,24 @@ export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
       prompt += `\n\n## 当前连接的数据库信息`;
       prompt += `\n- 数据源: ${databaseContext.datasourceName}`;
       prompt += `\n- 数据库: ${databaseContext.databaseName}`;
-      prompt += `\n- 类型: ${databaseContext.dbType === "mysql" ? "MySQL" : "Redis"}`;
+      const dbLabel =
+        databaseContext.dbType === "mysql"
+          ? "MySQL"
+          : databaseContext.dbType === "postgresql"
+            ? "PostgreSQL"
+            : "Redis";
+      prompt += `\n- 类型: ${dbLabel}`;
 
-      if (databaseContext.dbType === "mysql") {
+      if (databaseContext.dbType === "mysql" || databaseContext.dbType === "postgresql") {
+        const dbName = databaseContext.dbType === "postgresql" ? "PostgreSQL" : "MySQL";
         prompt += `\n\n## 可用工具`;
         prompt += `\n你可以使用以下工具来查询数据库信息：`;
-        prompt += `\n- \`get_database_version\`: 获取 MySQL 服务器版本（如 8.0.x、5.7.x），用于判断可用的 SQL 语法和功能`;
+        prompt += `\n- \`get_database_version\`: 获取 ${dbName} 服务器版本，用于判断可用的 SQL 语法和功能`;
         prompt += `\n- \`list_tables\`: 列出当前数据库中的所有表`;
         prompt += `\n- \`get_table_schema\`: 获取指定表的字段结构（字段名、类型、键、默认值等）`;
         prompt += `\n- \`get_table_document\`: 获取指定表的技术文档（Markdown 格式，包含用途、字段详解、索引分析等）`;
-        prompt += `\n- \`explain_sql\`: 对一条 SQL 语句执行 EXPLAIN 分析，获取 MySQL 优化器的执行计划（访问类型、索引使用、扫描行数等），用于分析 SQL 性能瓶颈`;
-        prompt += `\n\n在回答用户问题前，优先使用工具获取真实的表结构和文档信息，而不是猜测。如果用户没有明确说明数据库版本，建议先调用 \`get_database_version\` 了解版本，以便生成正确方言的 SQL（例如 MySQL 8.0 支持窗口函数和 CTE，5.7 不支持）。`;
+        prompt += `\n- \`explain_sql\`: 对一条 SQL 语句执行 EXPLAIN 分析，获取执行计划（访问类型、索引使用、扫描行数等），用于分析 SQL 性能瓶颈`;
+        prompt += `\n\n在回答用户问题前，优先使用工具获取真实的表结构和文档信息，而不是猜测。如果用户没有明确说明数据库版本，建议先调用 \`get_database_version\` 了解版本，以便生成正确方言的 SQL。`;
       }
     }
     return prompt;
@@ -435,7 +442,12 @@ export default function AIChat({ onRunSql, databaseContext }: AIChatProps) {
             <span>
               当前数据库: <strong>{databaseContext.databaseName}</strong>
               <span style={{ marginLeft: 12, color: "#888" }}>
-                {databaseContext.datasourceName} · {databaseContext.dbType === "mysql" ? "MySQL" : "Redis"}
+                {databaseContext.datasourceName} ·{" "}
+                {databaseContext.dbType === "mysql"
+                  ? "MySQL"
+                  : databaseContext.dbType === "postgresql"
+                    ? "PostgreSQL"
+                    : "Redis"}
               </span>
             </span>
           }

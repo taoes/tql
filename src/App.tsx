@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Modal, message, Splitter } from "antd";
+import { listen } from "@tauri-apps/api/event";
 import "./App.css";
 import SidebarTitle from "./components/SidebarTitle";
 import SidebarBody from "./components/SidebarBody";
 import StatusBar from "./components/StatusBar";
 import ContentBody from "./components/ContentBody";
 import SystemSettings from "./components/SystemSettings";
-import { openDocsFolder } from "./db-api";
+import AboutModal from "./components/AboutModal";
+import { getAppInfo, openDocsFolder } from "./db-api";
 import type { DbContext } from "./components/AIChat";
 import type { DataSourceConfig } from "./settings/types";
 import { useTranslation } from "./i18n";
@@ -29,6 +31,7 @@ interface DocToOpen {
 
 export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const [selectedDsName, setSelectedDsName] = useState<string | null>(null);
   const [dbChatToOpen, setDbChatToOpen] = useState<DbContext | null>(null);
   const [sqlToOpen, setSqlToOpen] = useState<SqlToOpen | null>(null);
@@ -88,6 +91,23 @@ export default function App() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
+
+  // Sync the browser title with the Rust backend version at startup.
+  useEffect(() => {
+    getAppInfo().then((info) => {
+      document.title = `${info.name} v${info.version}`;
+    }).catch(() => {});
+  }, []);
+
+  // Listen for "show-about" event from the tray menu (Rust → frontend).
+  useEffect(() => {
+    const unlisten = listen("show-about", () => {
+      setAboutOpen(true);
+    });
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, []);
 
   return (
     <main className="app-root">
@@ -168,6 +188,8 @@ export default function App() {
       >
         <SystemSettings />
       </Modal>
+
+      <AboutModal open={aboutOpen} onClose={() => setAboutOpen(false)} />
     </main>
   );
 }

@@ -9,6 +9,22 @@ import type { Locale } from "./i18n/types";
 // Connects the React frontend to the Rust database commands.
 // ============================================================
 
+/** Application metadata returned by the Rust backend. */
+export interface AppInfo {
+  name: string;
+  description: string;
+  version: string;
+  githubUrl: string;
+  authorEmail: string;
+}
+
+/** Get application metadata (name, description, version, githubUrl).
+ *  The version is read from Cargo.toml at build time — bump it
+ *  there and rebuild to update the version everywhere. */
+export async function getAppInfo(): Promise<AppInfo> {
+  return invoke<AppInfo>("get_app_info");
+}
+
 /** Column metadata returned for MySQL tables */
 export interface ColumnInfo {
   name: string;
@@ -138,6 +154,49 @@ export async function openDocsFolder(
   });
 }
 
+/** Get the PostgreSQL server version string (e.g. "16.3"). */
+export async function getPgsqlVersion(
+  config: DataSourceConfig,
+): Promise<string> {
+  return invoke<string>("get_pgsql_version", { config });
+}
+
+/** List all non‑template databases in a PostgreSQL instance. */
+export async function listPgsqlDatabases(
+  config: DataSourceConfig,
+): Promise<string[]> {
+  return invoke<string[]>("list_pgsql_databases", { config });
+}
+
+/** List all non‑system schemas in a PostgreSQL database. */
+export async function listPgsqlSchemas(
+  config: DataSourceConfig,
+  database: string,
+): Promise<string[]> {
+  return invoke<string[]>("list_pgsql_schemas", { config, database });
+}
+
+/** List all tables in a PostgreSQL database (schema-qualified for non‑public schemas). */
+export async function listPgsqlTables(
+  config: DataSourceConfig,
+  database: string,
+): Promise<string[]> {
+  return invoke<string[]>("list_pgsql_tables", { config, database });
+}
+
+/** List all columns in a PostgreSQL table with metadata. */
+export async function listPgsqlColumns(
+  config: DataSourceConfig,
+  database: string,
+  table: string,
+): Promise<ColumnInfo[]> {
+  return invoke<ColumnInfo[]>("list_pgsql_columns", {
+    config,
+    database,
+    table,
+  });
+}
+
 /** List all Redis databases with key counts. */
 export async function listRedisDatabases(
   config: DataSourceConfig,
@@ -183,9 +242,10 @@ export async function executeQuery(
 export async function setTrayMenuLabels(
   openDocs: string,
   showHide: string,
+  about: string,
   quit: string,
 ): Promise<void> {
-  return invoke("set_tray_menu_labels", { openDocs, showHide, quit });
+  return invoke("set_tray_menu_labels", { openDocs, showHide, about, quit });
 }
 
 /** Look up tray menu labels for a locale and push them to the Rust backend. */
@@ -194,6 +254,7 @@ export async function syncTrayMenu(locale: Locale): Promise<void> {
   await setTrayMenuLabels(
     dict.tray.openDocs,
     dict.tray.showHide,
+    dict.tray.about,
     dict.tray.quit,
   );
 }

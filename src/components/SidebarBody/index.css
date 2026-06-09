@@ -31,10 +31,24 @@
 .sidebar-tree .ant-tree-node-content-wrapper {
   min-height: 28px;
   padding-inline: 4px;
+  max-width: 100%;
+  overflow: hidden;
+  display: inline-flex !important;
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
+.sidebar-tree .ant-tree-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .sidebar-tree .ant-tree-iconEle {
   margin-inline-end: 4px;
+  flex-shrink: 0;
 }
 
 .sidebar-tree-ctx-menu {

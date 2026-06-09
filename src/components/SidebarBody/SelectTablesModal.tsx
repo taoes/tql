@@ -12,7 +12,7 @@ import {
   InboxOutlined,
 } from "@ant-design/icons";
 import { useTranslation } from "../../i18n";
-import { listMysqlTables } from "../../db-api";
+import { listMysqlTables, listPgsqlTables } from "../../db-api";
 import type { DataSourceConfig } from "../../settings/types";
 
 interface Props {
@@ -46,7 +46,11 @@ function SelectTablesModal({
     if (!open || !dataSourceConfig) return;
     setLoading(true);
     setSearch("");
-    listMysqlTables(dataSourceConfig, dbName)
+    const fetcher =
+      dataSourceConfig.dbType === "postgresql"
+        ? listPgsqlTables
+        : listMysqlTables;
+    fetcher(dataSourceConfig, dbName)
       .then((tables) => {
         setAllTables(tables);
         setChecked(currentVisible ?? tables);
