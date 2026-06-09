@@ -1,7 +1,8 @@
 [package]
 name = "tql"
-version = "0.1.0"
-description = "A Tauri App"
+version = "0.0.2"
+description = "TextQL — LLM-powered intelligent SQL client"
+repository = "https://github.com/taoes/tql"
 authors = ["you"]
 edition = "2021"
 

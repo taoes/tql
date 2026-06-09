@@ -4,6 +4,13 @@
   font-weight: 700;
 }
 
+.sidebar-version {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--color-muted-foreground, #6b7280);
+  margin-left: 6px;
+}
+
 .sidebar-subtitle {
   font-size: 0.875rem;
   font-weight: 300;

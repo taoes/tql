@@ -2,13 +2,14 @@ import type { Messages } from "./zh-CN";
 
 const messages: Messages = {
   app: {
-    title: "TextQL 0.1.0",
+    title: "TextQL",
     subtitle: "LLM-powered intelligent SQL client",
     refreshed: "Data refreshed",
   },
   tray: {
     openDocs: "Open Document Directory",
     showHide: "Show/Hide",
+    about: "About TextQL",
     quit: "Quit",
   },
   statusBar: {

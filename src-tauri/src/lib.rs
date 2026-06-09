@@ -1,7 +1,9 @@
 use std::path::PathBuf;
 use std::sync::Mutex;
 use std::time::Duration;
+use tauri::Emitter;
 
+mod app_info;
 mod db;
 
 // ── Tray state ────────────────────────────────────────────────────
@@ -27,6 +29,7 @@ fn set_tray_menu_labels(
     state: tauri::State<'_, TrayState>,
     open_docs: String,
     show_hide: String,
+    about: String,
     quit: String,
 ) -> Result<(), String> {
     use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem};
@@ -35,6 +38,9 @@ fn set_tray_menu_labels(
         .build(&app)
         .map_err(|e| format!("Failed to build menu item: {e}"))?;
     let show_hide_item = MenuItemBuilder::with_id("show_hide", &show_hide)
+        .build(&app)
+        .map_err(|e| format!("Failed to build menu item: {e}"))?;
+    let about_item = MenuItemBuilder::with_id("about_tql", &about)
         .build(&app)
         .map_err(|e| format!("Failed to build menu item: {e}"))?;
     let separator = PredefinedMenuItem::separator(&app)
@@ -46,6 +52,7 @@ fn set_tray_menu_labels(
     let menu = MenuBuilder::new(&app)
         .item(&open_docs_item)
         .item(&show_hide_item)
+        .item(&about_item)
         .item(&separator)
         .item(&quit_item)
         .build()
@@ -517,6 +524,8 @@ pub fn run() {
                         .build(handle)?;
                 let show_hide = MenuItemBuilder::with_id("show_hide", "Show/Hide")
                     .build(handle)?;
+                let about = MenuItemBuilder::with_id("about_tql", "About TextQL")
+                    .build(handle)?;
                 let separator = PredefinedMenuItem::separator(handle)?;
                 let quit = MenuItemBuilder::with_id("quit_tray", "Quit")
                     .build(handle)?;
@@ -524,6 +533,7 @@ pub fn run() {
                 let tray_menu = MenuBuilder::new(handle)
                     .item(&open_docs)
                     .item(&show_hide)
+                    .item(&about)
                     .item(&separator)
                     .item(&quit)
                     .build()?;
@@ -579,6 +589,9 @@ pub fn run() {
                                         let _ = window.set_focus();
                                     }
                                 }
+                            }
+                            "about_tql" => {
+                                let _ = app_handle.emit("show-about", ());
                             }
                             "quit_tray" => {
                                 app_handle.exit(0);
@@ -644,6 +657,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            app_info::get_app_info,
             greet,
             get_system_theme,
             load_settings,

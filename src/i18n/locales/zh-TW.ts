@@ -2,13 +2,14 @@ import type { Messages } from "./zh-CN";
 
 const messages: Messages = {
   app: {
-    title: "TextQL 0.1.0",
+    title: "TextQL",
     subtitle: "基於 LLM 的智慧 SQL 用戶端",
     refreshed: "資料已重新整理",
   },
   tray: {
     openDocs: "開啟文件目錄",
     showHide: "顯示/隱藏",
+    about: "關於 TextQL",
     quit: "結束程式",
   },
   statusBar: {

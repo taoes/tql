@@ -1,0 +1,62 @@
+.about-modal .about-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 16px 0;
+}
+
+.about-modal .about-icon {
+  font-size: 48px;
+  color: var(--color-primary, #1677ff);
+  margin-bottom: 16px;
+}
+
+.about-modal .about-app-name {
+  margin-bottom: 8px !important;
+}
+
+.about-modal .about-version {
+  margin-bottom: 16px;
+}
+
+.about-modal .about-description {
+  max-width: 340px;
+  margin-bottom: 16px !important;
+}
+
+.about-modal .about-github-link {
+  display: inline-flex;
+  align-items: center;
+  font-size: 13px;
+  color: var(--color-text-secondary, #666);
+  margin-bottom: 16px;
+  word-break: break-all;
+}
+
+.about-modal .about-github-link:hover {
+  color: var(--color-primary, #1677ff);
+}
+
+.about-modal .about-email-link {
+  display: inline-flex;
+  align-items: center;
+  font-size: 13px;
+  color: var(--color-text-secondary, #666);
+  margin-bottom: 8px;
+}
+
+.about-modal .about-email-link:hover {
+  color: var(--color-primary, #1677ff);
+}
+
+.about-modal .about-license {
+  font-size: 12px;
+  margin-bottom: 4px !important;
+}
+
+.about-modal .about-copyright {
+  font-size: 12px;
+  color: var(--color-text-quaternary, #999);
+  margin-bottom: 0 !important;
+}
